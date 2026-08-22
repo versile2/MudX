@@ -30,7 +30,6 @@ function handlePaste(event, input, dotNetObjRef) {
     const paste = (event.clipboardData || window.clipboardData)?.getData("Text");
     if (paste) {
         dotNetObjRef.invokeMethodAsync("ClipboardPasteEvent", input.id, paste);
-        input.blur();
     }
 }
 
@@ -45,38 +44,3 @@ export function focusBlock(container, inputId) {
         catch { }
     }
 }
-
-export function focusNextAfterContainer(container) {
-    if (!container) return;
-
-    setTimeout(() => focusNextElement(), 0);
-}
-
-function focusNextElement() {
-    const focusableSelector = 'a:not([disabled]), button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([disabled]):not([tabindex="-1"])';
-
-    if (!document.activeElement) return;
-
-    // Get all focusable elements in the document (or form if within a form)
-    const container = document.activeElement.form || document;
-    const focusableElements = Array.from(container.querySelectorAll(focusableSelector))
-        .filter(element => {
-            return element.offsetWidth > 0 || element.offsetHeight > 0 || element === document.activeElement;
-        });
-
-    const currentIndex = focusableElements.indexOf(document.activeElement);
-    const nextIndex = currentIndex + 1;
-
-    // Focus next element if it exists
-    if (nextIndex < focusableElements.length) {        
-        const el = focusableElements[nextIndex];
-        if (el) {
-            el.focus();
-            if (typeof el.select === 'function') {
-                el.select(); // Select the input content if applicable
-            }
-        }
-    }
-}
-
-
