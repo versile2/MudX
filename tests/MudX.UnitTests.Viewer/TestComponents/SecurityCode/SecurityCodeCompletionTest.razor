@@ -27,13 +27,13 @@
 <MudStack Spacing="2">
     <MudText Typo="Typo.h5">Security code completion contract</MudText>
     <MudText Typo="Typo.body2">
-        Completion publishes and validates before an explicit consumer callback. Without a callback, focus remains on the terminal field.
+        Completion publishes and validates first. Without a handler, focus advances automatically; with a handler, follow-up focus is consumer-owned.
     </MudText>
 
     <div class="completion-grid">
         <MudPaper id="explicit-case" Class="completion-card pa-4" Outlined>
             <MudStack Spacing="2">
-                <MudText Typo="Typo.h6">Explicit callback</MudText>
+                <MudText Typo="Typo.h6">Explicit callback focus</MudText>
                 <MudXSecurityCode @bind-Code="_explicitCode" Pattern="####" OnCompleted="HandleExplicitCompleted" />
                 <MudText data-testid="explicit-value">Value: @_explicitCode</MudText>
                 <MudText data-testid="explicit-completion">Completed: @_explicitCompletedValue (@_explicitCompletionCount)</MudText>
@@ -45,11 +45,11 @@
 
         <MudPaper id="no-handler-case" Class="completion-card pa-4" Outlined>
             <MudStack Spacing="2">
-                <MudText Typo="Typo.h6">No completion handler</MudText>
+                <MudText Typo="Typo.h6">Legacy automatic focus</MudText>
                 <MudXSecurityCode @bind-Code="_noHandlerCode" Pattern="####" />
                 <MudText data-testid="no-handler-value">Value: @_noHandlerCode</MudText>
-                <button id="native-zero-target" class="completion-target" type="button">
-                    Native zero-tabindex target
+                <button id="legacy-target" class="completion-target" type="button">
+                    Legacy automatic next target
                 </button>
             </MudStack>
         </MudPaper>
@@ -75,7 +75,7 @@
 </MudStack>
 
 @code {
-    public static string __description__ = "Security code completion and consumer-owned focus";
+    public static string __description__ = "Security code completion focus compatibility";
 
     private ElementReference _explicitTarget;
     private string? _explicitCode;

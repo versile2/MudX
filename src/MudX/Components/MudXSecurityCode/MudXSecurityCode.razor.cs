@@ -124,6 +124,8 @@ namespace MudX
         /// <summary>
         /// Occurs after a complete security code has been published and the component's form has passed asynchronous validation.
         /// </summary>
+        /// <remarks>When a handler is provided, it is awaited and owns any follow-up behavior, including focus. Without a handler,
+        /// the component preserves its default behavior by advancing focus to the next focusable element.</remarks>
         [Parameter]
         public EventCallback<string?> OnCompleted { get; set; }
 
@@ -346,8 +348,9 @@ namespace MudX
         /// <remarks>This method processes the pasted text by matching it against the editable and fixed
         /// characters in the code items. Editable code items are updated with valid characters from the pasted text,
         /// while fixed code items are set to their predefined values. A partial paste advances focus to the next internal
-        /// editable item. A complete valid paste publishes the value, validates the form asynchronously, and then invokes
-        /// and awaits the consumer's <c>OnCompleted</c> callback; any external focus change is owned by that consumer.</remarks>
+        /// editable item. A complete valid paste publishes the value and validates the form asynchronously. When an
+        /// <c>OnCompleted</c> handler is provided, it is awaited and owns follow-up behavior; otherwise, focus advances to
+        /// the next focusable element.</remarks>
         /// <param name="fullid">The full identifier string, which must be at least 10 characters long. The substring after the first 10
         /// characters is used to determine the starting index for processing.</param>
         /// <param name="text">The text pasted from the clipboard. Cannot be null, empty, or consist only of whitespace.</param>
@@ -445,8 +448,13 @@ namespace MudX
                 return;
 
             await _form.ValidateAsync();
-            if (_form.IsValid && IsCurrentCompletion(interactionGeneration, publishedValue))
+            if (!_form.IsValid || !IsCurrentCompletion(interactionGeneration, publishedValue))
+                return;
+
+            if (OnCompleted.HasDelegate)
                 await OnCompleted.InvokeAsync(publishedValue);
+            else if (_module is not null)
+                await _module.InvokeVoidAsync("focusNextAfterContainer", _elementRef);
         }
 
         private bool IsCurrentCompletion(long interactionGeneration, string? publishedValue)

@@ -13,9 +13,9 @@
                 customizable pattern (e.g., <CodeInline>####</CodeInline> or <CodeInline>##-##</CodeInline>). Each placeholder accepts
                 numeric, alphabetic, symbolic, or any <c>UTF-8</c> character types based on your configuration. Entering text in a code
                 box will automatically move to the next code box. Pressing backspace will clear the box and once cleared it will move
-                to the previous code box. Both of these actions skip non-placeholders. Completing the final box does not move focus outside
-                the component. Without an <CodeInline Tag="false">OnCompleted</CodeInline> handler, focus remains on the final box and the
-                browser performs its normal navigation when the user presses <CodeInline Tag="false">Tab</CodeInline>.
+                to the previous code box. Both of these actions skip non-placeholders. After the final box completes and asynchronous
+                validation succeeds, the default behavior advances focus to the next focusable element. Binding an
+                <CodeInline Tag="false">OnCompleted</CodeInline> handler opts into consumer-owned follow-up behavior instead.
             </Description>
         </DocsPageHeader>
 
@@ -40,11 +40,12 @@
 
         <DocsPageSection Title="Completion and Focus">
             <Description>
-                Use the awaited <CodeInline Tag="false">OnCompleted</CodeInline> callback when completion should submit the published code or
-                focus a known consumer-owned target. The callback receives the immutable value published for the latest current interaction,
-                after asynchronous validation succeeds. If a newer interaction supersedes one that is awaiting publication or validation,
-                only the newer current value completes. External focus is always consumer-owned; the component only advances focus among its
-                own code boxes.
+                Without an <CodeInline Tag="false">OnCompleted</CodeInline> handler, a validated completion preserves the component's legacy
+                behavior by advancing focus to the next focusable element. Bind the awaited callback when completion should submit the
+                published code or focus a known consumer-owned target; in that opt-in path, the component does not also perform automatic
+                external focus. The callback receives the immutable value published for the latest current interaction after asynchronous
+                validation succeeds. If a newer interaction supersedes one awaiting publication or validation, only the newer current value
+                completes.
             </Description>
             <ChildContent>
                 <SectionContent Codes="@SecurityCodeCompletionExampleCode.Files">

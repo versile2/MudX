@@ -1,6 +1,7 @@
 @namespace MudX.Docs.SecurityCode
 
 <MudStack Spacing="2" Class="mx-auto" Style="max-width: 320px;">
+    <MudText>Binding OnCompleted opts into consumer-owned follow-up behavior.</MudText>
     <MudXSecurityCode @bind-Code="_code" Pattern="####" OnCompleted="HandleCompleted" />
     <MudText>Completed code: @_completedCode</MudText>
     <label for="security-code-next-field">Consumer-owned next field</label>

@@ -62,6 +62,7 @@ namespace MudX.UnitTests.Components
             // Setup the initialize call to return true
             moduleMock.Setup<bool>("init", _ => true);
             moduleMock.Setup<bool>("focusBlock", _ => true);
+            moduleMock.Setup<bool>("focusNextAfterContainer", _ => true);
             moduleMock.Setup<bool>("cleanup", _ => true);
 
             var comp = Context.RenderComponent<SecurityCodeBasicTest>();
@@ -82,7 +83,7 @@ namespace MudX.UnitTests.Components
             await comp.InvokeAsync(() => inputs[2].Input("3"));
             await comp.InvokeAsync(() => inputs[3].Input("4"));
 
-            moduleMock.Invocations.Should().NotContain(invocation => invocation.Identifier == "focusNextAfterContainer");
+            moduleMock.Invocations.Count(invocation => invocation.Identifier == "focusNextAfterContainer").Should().Be(1);
             // dispose the component
             await codeComp.Instance.DisposeAsync();
             comp.WaitForAssertion(() => moduleMock.VerifyInvoke("cleanup"));
@@ -178,6 +179,9 @@ namespace MudX.UnitTests.Components
         [Test]
         public async Task SecurityCode_ShouldPublishAndValidateBeforeCompletingTerminalInput()
         {
+            var moduleMock = Context.JSInterop.SetupModule(AssemblyInfo.ModulePath("mudxSecurityCode.js"));
+            moduleMock.Setup<bool>("init", _ => true);
+            moduleMock.Setup<bool>("focusNextAfterContainer", _ => true);
             var eventOrder = new List<string>();
             MudForm? form = null;
             var comp = Context.RenderComponent<MudXSecurityCode>(
@@ -196,11 +200,15 @@ namespace MudX.UnitTests.Components
             comp.Instance._codeState.Value.Should().Be("7");
             eventOrder.Should().Contain("published:7");
             eventOrder.Last().Should().Be("completed:7");
+            moduleMock.Invocations.Should().NotContain(invocation => invocation.Identifier == "focusNextAfterContainer");
         }
 
         [Test]
         public async Task SecurityCode_ShouldPublishAndValidateBeforeCompletingPaste()
         {
+            var moduleMock = Context.JSInterop.SetupModule(AssemblyInfo.ModulePath("mudxSecurityCode.js"));
+            moduleMock.Setup<bool>("init", _ => true);
+            moduleMock.Setup<bool>("focusNextAfterContainer", _ => true);
             var eventOrder = new List<string>();
             MudForm? form = null;
             var comp = Context.RenderComponent<MudXSecurityCode>(
@@ -219,6 +227,25 @@ namespace MudX.UnitTests.Components
             comp.Instance._codeState.Value.Should().Be("12/34");
             eventOrder.Should().Contain("published:12/34");
             eventOrder.Last().Should().Be("completed:12/34");
+            moduleMock.Invocations.Should().NotContain(invocation => invocation.Identifier == "focusNextAfterContainer");
+        }
+
+        [Test]
+        public async Task SecurityCode_ShouldFocusNextAfterCompletePasteWithoutHandler()
+        {
+            var moduleMock = Context.JSInterop.SetupModule(AssemblyInfo.ModulePath("mudxSecurityCode.js"));
+            moduleMock.Setup<bool>("init", _ => true);
+            moduleMock.Setup<bool>("focusNextAfterContainer", _ => true);
+            var comp = Context.RenderComponent<MudXSecurityCode>(
+                parameters => parameters.Add(p => p.Pattern, "##/##"));
+            var form = comp.FindComponent<MudForm>();
+
+            await comp.InvokeAsync(() =>
+                comp.Instance.ClipboardPasteEvent("mudx-code-0-random-guid", "12/34"));
+
+            comp.Instance._codeState.Value.Should().Be("12/34");
+            form.Instance.IsValid.Should().BeTrue();
+            moduleMock.Invocations.Count(invocation => invocation.Identifier == "focusNextAfterContainer").Should().Be(1);
         }
 
         [Test]
@@ -227,6 +254,7 @@ namespace MudX.UnitTests.Components
             var moduleMock = Context.JSInterop.SetupModule(AssemblyInfo.ModulePath("mudxSecurityCode.js"));
             moduleMock.Setup<bool>("init", _ => true);
             moduleMock.Setup<bool>("focusBlock", _ => true);
+            moduleMock.Setup<bool>("focusNextAfterContainer", _ => true);
             var completionCount = 0;
             var comp = Context.RenderComponent<MudXSecurityCode>(
                 parameters => parameters
@@ -238,11 +266,15 @@ namespace MudX.UnitTests.Components
             comp.Instance._codeState.Value.Should().Be("12");
             completionCount.Should().Be(0);
             moduleMock.VerifyInvoke("focusBlock");
+            moduleMock.Invocations.Should().NotContain(invocation => invocation.Identifier == "focusNextAfterContainer");
         }
 
         [Test]
         public async Task SecurityCode_ShouldNotCompleteInvalidTerminalInput()
         {
+            var moduleMock = Context.JSInterop.SetupModule(AssemblyInfo.ModulePath("mudxSecurityCode.js"));
+            moduleMock.Setup<bool>("init", _ => true);
+            moduleMock.Setup<bool>("focusNextAfterContainer", _ => true);
             var completionCount = 0;
             var comp = Context.RenderComponent<MudXSecurityCode>(
                 parameters => parameters
@@ -253,6 +285,7 @@ namespace MudX.UnitTests.Components
 
             comp.Instance._codeState.Value.Should().BeEmpty();
             completionCount.Should().Be(0);
+            moduleMock.Invocations.Should().NotContain(invocation => invocation.Identifier == "focusNextAfterContainer");
         }
 
         [Test]
