@@ -65,7 +65,7 @@ namespace MudX.UnitTests.Components
             moduleMock.Setup<bool>("focusNextAfterContainer", _ => true);
             moduleMock.Setup<bool>("cleanup", _ => true);
 
-            var comp = Context.RenderComponent<SecurityCodeBasicTest>();
+            var comp = Context.Render<SecurityCodeBasicTest>();
             var codeComp = comp.FindComponent<MudXSecurityCode>();
             codeComp.Should().NotBeNull();
             var textFields = comp.FindComponents<MudTextField<string>>().Where(x => x.Markup.Contains("mudx-code-item")).ToList();
@@ -93,7 +93,7 @@ namespace MudX.UnitTests.Components
         public void SecurityCode_ShouldRender()
         {
             // Arrange
-            var comp = Context.RenderComponent<SecurityCodeBasicTest>();
+            var comp = Context.Render<SecurityCodeBasicTest>();
             var codeComp = comp.FindComponent<MudXSecurityCode>();
 
             // Assert
@@ -107,7 +107,7 @@ namespace MudX.UnitTests.Components
         public void SecurityCode_ShouldRenderWithCustomPattern()
         {
             // Arrange
-            var comp = Context.RenderComponent<MudXSecurityCode>(
+            var comp = Context.Render<MudXSecurityCode>(
                 parameters => parameters.Add(p => p.Pattern, "#A?@*-")
                 // numeric, alpha, alphanumeric, special, any, read-only
             );
@@ -138,7 +138,7 @@ namespace MudX.UnitTests.Components
         [Test]
         public async Task SecurityCode_ShouldValidateFormAfterTerminalInput()
         {
-            var comp = Context.RenderComponent<MudXSecurityCode>(
+            var comp = Context.Render<MudXSecurityCode>(
                 parameters => parameters.Add(p => p.Pattern, "#"));
             var form = comp.FindComponent<MudForm>();
 
@@ -156,7 +156,7 @@ namespace MudX.UnitTests.Components
             moduleMock.Setup<bool>("focusBlock", _ => true);
             var completionCount = 0;
             string? completedValue = null;
-            var comp = Context.RenderComponent<MudXSecurityCode>(
+            var comp = Context.Render<MudXSecurityCode>(
                 parameters => parameters
                     .Add(p => p.Pattern, "##/")
                     .Add(p => p.OnCompleted, EventCallback.Factory.Create<string?>(this, value =>
@@ -184,7 +184,7 @@ namespace MudX.UnitTests.Components
             moduleMock.Setup<bool>("focusNextAfterContainer", _ => true);
             var eventOrder = new List<string>();
             MudForm? form = null;
-            var comp = Context.RenderComponent<MudXSecurityCode>(
+            var comp = Context.Render<MudXSecurityCode>(
                 parameters => parameters
                     .Add(p => p.Pattern, "#")
                     .Add(p => p.CodeChanged, EventCallback.Factory.Create<string?>(this, value => eventOrder.Add($"published:{value}")))
@@ -211,7 +211,7 @@ namespace MudX.UnitTests.Components
             moduleMock.Setup<bool>("focusNextAfterContainer", _ => true);
             var eventOrder = new List<string>();
             MudForm? form = null;
-            var comp = Context.RenderComponent<MudXSecurityCode>(
+            var comp = Context.Render<MudXSecurityCode>(
                 parameters => parameters
                     .Add(p => p.Pattern, "##/##")
                     .Add(p => p.CodeChanged, EventCallback.Factory.Create<string?>(this, value => eventOrder.Add($"published:{value}")))
@@ -236,7 +236,7 @@ namespace MudX.UnitTests.Components
             var moduleMock = Context.JSInterop.SetupModule(AssemblyInfo.ModulePath("mudxSecurityCode.js"));
             moduleMock.Setup<bool>("init", _ => true);
             moduleMock.Setup<bool>("focusNextAfterContainer", _ => true);
-            var comp = Context.RenderComponent<MudXSecurityCode>(
+            var comp = Context.Render<MudXSecurityCode>(
                 parameters => parameters.Add(p => p.Pattern, "##/##"));
             var form = comp.FindComponent<MudForm>();
 
@@ -256,7 +256,7 @@ namespace MudX.UnitTests.Components
             moduleMock.Setup<bool>("focusBlock", _ => true);
             moduleMock.Setup<bool>("focusNextAfterContainer", _ => true);
             var completionCount = 0;
-            var comp = Context.RenderComponent<MudXSecurityCode>(
+            var comp = Context.Render<MudXSecurityCode>(
                 parameters => parameters
                     .Add(p => p.Pattern, "####")
                     .Add(p => p.OnCompleted, EventCallback.Factory.Create<string?>(this, _ => completionCount++)));
@@ -276,7 +276,7 @@ namespace MudX.UnitTests.Components
             moduleMock.Setup<bool>("init", _ => true);
             moduleMock.Setup<bool>("focusNextAfterContainer", _ => true);
             var completionCount = 0;
-            var comp = Context.RenderComponent<MudXSecurityCode>(
+            var comp = Context.Render<MudXSecurityCode>(
                 parameters => parameters
                     .Add(p => p.Pattern, "#")
                     .Add(p => p.OnCompleted, EventCallback.Factory.Create<string?>(this, _ => completionCount++)));
@@ -293,7 +293,7 @@ namespace MudX.UnitTests.Components
         {
             var handlerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var releaseHandler = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var comp = Context.RenderComponent<MudXSecurityCode>(
+            var comp = Context.Render<MudXSecurityCode>(
                 parameters => parameters
                     .Add(p => p.Pattern, "#")
                     .Add(p => p.OnCompleted, EventCallback.Factory.Create<string?>(this,
@@ -318,7 +318,7 @@ namespace MudX.UnitTests.Components
             var firstPublicationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var releaseFirstPublication = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var completedValues = new List<string?>();
-            var comp = Context.RenderComponent<MudXSecurityCode>(
+            var comp = Context.Render<MudXSecurityCode>(
                 parameters => parameters
                     .Add(p => p.Pattern, "#")
                     .Add(p => p.CodeChanged, EventCallback.Factory.Create<string?>(this,
@@ -350,7 +350,7 @@ namespace MudX.UnitTests.Components
         [Test]
         public async Task SecurityCode_ShouldValidateFormAfterPaste()
         {
-            var comp = Context.RenderComponent<MudXSecurityCode>(
+            var comp = Context.Render<MudXSecurityCode>(
                 parameters => parameters.Add(p => p.Pattern, "##/##"));
             var form = comp.FindComponent<MudForm>();
 
@@ -372,7 +372,7 @@ namespace MudX.UnitTests.Components
         [Test]
         public async Task SecurityCode_ShouldFormatPasteText(string pattern, string pasteText, string expectedValue, string expectedValue2)
         {
-            var comp = Context.RenderComponent<MudXSecurityCode>(
+            var comp = Context.Render<MudXSecurityCode>(
                 parameters => parameters.Add(p => p.Pattern, pattern)
             );
             // starts paste at position 0
@@ -396,7 +396,7 @@ namespace MudX.UnitTests.Components
         public async Task SecurityCode_ShouldUpdateCodeWhenCodeItemIsRemoved()
         {
             // Arrange
-            var comp = Context.RenderComponent<SecurityCodeBasicTest>();
+            var comp = Context.Render<SecurityCodeBasicTest>();
             var codeComp = comp.FindComponent<MudXSecurityCode>();
 
             // Assert
