@@ -9,11 +9,11 @@ public class ApiSourceTests
     public void FindPackageXmlPath_SelectsRequestedVersionAndFramework()
     {
         var packageRoot = Directory.CreateTempSubdirectory();
-        var expectedPath = Path.Combine(packageRoot.FullName, "9.8.0", "lib", "net10.0", "MudBlazor.xml");
+        var expectedPath = Path.Combine(packageRoot.FullName, "9.9.0", "lib", "net10.0", "MudBlazor.xml");
         var stalePath = Path.Combine(packageRoot.FullName, "8.0.0", "lib", "net10.0", "MudBlazor.xml");
         Directory.CreateDirectory(Path.GetDirectoryName(expectedPath)!);
         Directory.CreateDirectory(Path.GetDirectoryName(stalePath)!);
-        File.WriteAllText(expectedPath, "9.8.0");
+        File.WriteAllText(expectedPath, "9.9.0");
         File.WriteAllText(stalePath, "8.0.0");
 
         try
@@ -27,7 +27,7 @@ public class ApiSourceTests
             findPackageXmlPath.Should().NotBeNull();
             var selectedPath = (string?)findPackageXmlPath!.Invoke(
                 null,
-                [packageRoot.FullName, "9.8.0", "net10.0", "MudBlazor.xml"]);
+                [packageRoot.FullName, "9.9.0", "net10.0", "MudBlazor.xml"]);
 
             selectedPath.Should().Be(expectedPath);
         }

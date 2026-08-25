@@ -1947,6 +1947,11 @@
             Defaults to <c>false</c>.
             </remarks>
         </member>
+        <member name="P:MudBlazor.MudBaseInput`1.EffectiveImmediate">
+            <summary>
+            For inheritors: determines if the Immediate state is set.
+            </summary>
+        </member>
         <member name="P:MudBlazor.MudBaseInput`1.Immediate">
             <summary>
             Changes the <see cref="P:MudBlazor.MudBaseInput`1.Value"/> as soon as input is received.
@@ -4429,6 +4434,26 @@
             <seealso cref="T:MudBlazor.MudFab" />
             <seealso cref="T:MudBlazor.MudFabMenu" />
         </member>
+        <member name="F:MudBlazor.MudFabMenuItem._variantExplicitlySet">
+            <summary>
+            Indicates whether the <see cref="T:MudBlazor.Variant"/> property was explicitly set by the user.
+            </summary>
+        </member>
+        <member name="P:MudBlazor.MudFabMenuItem.Classname">
+            <summary>
+            CSS class names for the component, including base classes and conditional classes based on properties.
+            </summary>
+        </member>
+        <member name="P:MudBlazor.MudFabMenuItem.ParentMenu">
+            <summary>
+            The parent <see cref="T:MudBlazor.MudFabMenu"/> component, used to inherit <see cref="T:MudBlazor.Variant"/> when not explicitly set.
+            </summary>
+        </member>
+        <member name="P:MudBlazor.MudFabMenuItem.EffectiveVariant">
+            <summary>
+            The display variation to use.
+            </summary>
+        </member>
         <member name="P:MudBlazor.MudFabMenuItem.Size">
             <summary>
             The size of the menu item.
@@ -4436,6 +4461,12 @@
             <remarks>
             Defaults to <see cref="F:MudBlazor.Size.Medium"/>.
             </remarks>
+        </member>
+        <member name="M:MudBlazor.MudFabMenuItem.SetParametersAsync(Microsoft.AspNetCore.Components.ParameterView)">
+            <summary>
+            Sets the parameters for the component and determines if the Variant was explicitly set.
+            </summary>
+            <param name="parameters">The parameters to set.</param>
         </member>
         <member name="T:MudBlazor.MudIconButton">
             <summary>
@@ -9021,6 +9052,9 @@
         <member name="M:MudBlazor.MudColorPicker.GetDefaultConverter">
             <inheritdoc />
         </member>
+        <member name="M:MudBlazor.MudColorPicker.ClearAsync(System.Boolean)">
+            <inheritdoc />
+        </member>
         <member name="P:MudBlazor.MudColorPicker.ValueOrDefault">
             <summary>
             Gets the current value, or if null returns the last valid value.
@@ -9214,6 +9248,22 @@
             <summary>
             Calculates the sum of values.
             </summary>
+        </member>
+        <member name="P:MudBlazor.Cell`1.ComputedValue">
+            <summary>
+            The cell's value.
+            </summary>
+            <remarks>
+            <see cref="M:MudBlazor.Column`1.CellContent(`0)"/> invokes a compiled property expression and boxes value types, so the result is cached for the lifetime of this cell, which is a single render.
+            </remarks>
+        </member>
+        <member name="P:MudBlazor.Cell`1.Context">
+            <summary>
+            The state and actions passed to this cell's template.
+            </summary>
+            <remarks>
+            Only templates read this, so it is built on demand rather than for every cell of every render.
+            </remarks>
         </member>
         <member name="T:MudBlazor.CellContext`1">
             <summary>
@@ -9749,6 +9799,69 @@
         <member name="P:MudBlazor.Column`1.PropertyName">
             <summary>
             The name of the property used for sorting this column's values.
+            </summary>
+        </member>
+        <member name="M:MudBlazor.Column`1.GetCellContent(`0)">
+            <summary>
+            Gets the cell content value for the specified item.
+            </summary>
+            <param name="item">The item to retrieve the cell content for.</param>
+            <returns>The cell content value, or <c>null</c> if not available.</returns>
+        </member>
+        <member name="T:MudBlazor.DataGridCellClickEventArgs`1">
+            <summary>
+            Represents the information related to a <see cref="P:MudBlazor.MudDataGrid`1.CellClick"/> event.
+            </summary>
+            <typeparam name="T">The type of data represented by each row in the <see cref="T:MudBlazor.MudDataGrid`1"/>.</typeparam>
+        </member>
+        <member name="P:MudBlazor.DataGridCellClickEventArgs`1.MouseEventArgs">
+            <summary>
+            The coordinates of the pointer for this click.
+            </summary>
+        </member>
+        <member name="P:MudBlazor.DataGridCellClickEventArgs`1.Item">
+            <summary>
+            The item whose row was clicked.
+            </summary>
+        </member>
+        <member name="P:MudBlazor.DataGridCellClickEventArgs`1.RowIndex">
+            <summary>
+            The zero-based index of the row that was clicked.
+            </summary>
+        </member>
+        <member name="P:MudBlazor.DataGridCellClickEventArgs`1.ColumnIndex">
+            <summary>
+            The zero-based index of the visible column that was clicked.
+            </summary>
+        </member>
+        <member name="P:MudBlazor.DataGridCellClickEventArgs`1.Column">
+            <summary>
+            The column that was clicked.
+            </summary>
+        </member>
+        <member name="M:MudBlazor.DataGridCellClickEventArgs`1.#ctor(Microsoft.AspNetCore.Components.Web.MouseEventArgs,`0,System.Int32,System.Int32,MudBlazor.Column{`0})">
+            <summary>
+            Creates a new instance.
+            </summary>
+            <param name="mouseEventArgs">The coordinates of the pointer for this click.</param>
+            <param name="item">The item whose row was clicked.</param>
+            <param name="rowIndex">The zero-based index of the row.</param>
+            <param name="columnIndex">The zero-based index of the visible column.</param>
+            <param name="column">The column that was clicked.</param>
+        </member>
+        <member name="T:MudBlazor.DataGridDragAndDropColumnReorderMode">
+            <summary>
+            Indicates how columns are reordered when dragging column headers in a <see cref="T:MudBlazor.MudDataGrid`1"/>.
+            </summary>
+        </member>
+        <member name="F:MudBlazor.DataGridDragAndDropColumnReorderMode.Swap">
+            <summary>
+            Swaps the locations of the dragged column with the target column.
+            </summary>
+        </member>
+        <member name="F:MudBlazor.DataGridDragAndDropColumnReorderMode.Insert">
+            <summary>
+            Inserts the dragged column at the target column's position, shifting all subsequent columns one position.
             </summary>
         </member>
         <member name="T:MudBlazor.DataGridEditFormAction">
@@ -12742,11 +12855,24 @@
             The current values related to this footer cell.
             </summary>
         </member>
+        <member name="P:MudBlazor.FooterCell`1.GroupItems">
+            <summary>
+            The rows of the group this footer cell belongs to.
+            </summary>
+            <remarks>
+            Defaults to <c>null</c>, which scopes the footer to the whole grid.  It is set for the footer rendered underneath a single group of rows.
+            </remarks>
+        </member>
         <member name="T:MudBlazor.FooterContext`1">
             <summary>
             Footer state and actions passed to a <see cref="T:MudBlazor.MudDataGrid`1"/> footer template, exposing the displayed items and select-all command.
             </summary>
             <typeparam name="T">The kind of item being managed.</typeparam>
+        </member>
+        <member name="P:MudBlazor.FooterContext`1.GroupItemsFunc">
+            <summary>
+            Supplies the rows of the group this footer belongs to, or <c>null</c> when the footer applies to the whole grid.
+            </summary>
         </member>
         <member name="P:MudBlazor.FooterContext`1.Items">
             <summary>
@@ -13284,6 +13410,16 @@
             Occurs when a row has been right-clicked.
             </summary>
         </member>
+        <member name="P:MudBlazor.MudDataGrid`1.CellClick">
+            <summary>
+            Occurs when a cell has been clicked.
+            </summary>
+        </member>
+        <member name="P:MudBlazor.MudDataGrid`1.CellContextMenuClick">
+            <summary>
+            Occurs when a cell has been right-clicked.
+            </summary>
+        </member>
         <member name="P:MudBlazor.MudDataGrid`1.StartedEditingItem">
             <summary>
             Occurs when edit mode begins for an item.
@@ -13759,7 +13895,7 @@
         </member>
         <member name="M:MudBlazor.MudDataGrid`1.FireSelectionChangedEventsAsync">
             <summary>
-            Fires SelectedItemsChanged event and invokes SelectedItemsChangedEvent.
+            Publishes the current selection so bound parameters and their change callbacks see it.
             </summary>
         </member>
         <member name="P:MudBlazor.MudDataGrid`1.Loading">
@@ -14025,7 +14161,9 @@
             The comparer used to determine row selection.
             </summary>
             <remarks>
-            Defaults to <c>null</c>. When set, this comparer will be used to determine if a row is selected.
+            Defaults to <see cref="P:System.Collections.Generic.EqualityComparer`1.Default" />.
+            This comparer decides whether a row is selected and whether an expanded hierarchy row is still the same row after the data is refreshed.
+            Pass a stable instance: a change is detected by reference, so an inline <c>Comparer="@(new MyComparer())"</c> creates a fresh instance on every render and rebuilds the selection set every time.
             </remarks>
         </member>
         <member name="P:MudBlazor.MudDataGrid`1.GroupTemplate">
@@ -14033,6 +14171,15 @@
             The default template used to display column grouping for any column that is grouped.
             </summary>
             <remarks>Can be overridden by using the column level GroupTemplate, defaults to <c>null</c>.</remarks>
+        </member>
+        <member name="P:MudBlazor.MudDataGrid`1.ColumnReorderMode">
+            <summary>
+            The behavior of the grid when the user reorders column headers via drag and drop.
+            </summary>
+            <remarks>
+            Defaults to <c>DataGridDragAndDropColumnReorderMode.Swap</c>.
+            This mode applies to header drag-and-drop reordering. Reordering from the columns panel uses insert-by-index behavior.
+            </remarks>
         </member>
         <member name="P:MudBlazor.MudDataGrid`1.AllowUnsorted">
             <summary>
@@ -14154,6 +14301,29 @@
             When <see cref="P:MudBlazor.MudDataGrid`1.MultiSelection"/> is <c>true</c> and <see cref="P:MudBlazor.MudDataGrid`1.SelectOnRowClick"/> is <c>true</c>, the <see cref="P:MudBlazor.MudDataGrid`1.SelectedItems"/> are updated.  The <see cref="P:MudBlazor.MudDataGrid`1.SelectedItem"/> is also updated.
             </remarks>
         </member>
+        <member name="M:MudBlazor.MudDataGrid`1.SetGroupSelectAllAsync(System.Boolean,System.Collections.Generic.IEnumerable{`0})">
+            <summary>
+            Selects or clears every selectable row of a single group, leaving rows outside of the group untouched.
+            </summary>
+            <param name="value">When <c>true</c>, the group's rows are added to the selection; otherwise they are removed from it.</param>
+            <param name="groupItems">The rows belonging to the group.</param>
+        </member>
+        <member name="M:MudBlazor.MudDataGrid`1.GetSelectableItems">
+            <summary>
+            The items which select-all would select, i.e. every displayed row whose selection is not disabled.
+            </summary>
+        </member>
+        <member name="M:MudBlazor.MudDataGrid`1.GetSelectableItems(System.Collections.Generic.IEnumerable{`0})">
+            <summary>
+            The items of <paramref name="items"/> whose selection is not disabled.
+            </summary>
+        </member>
+        <member name="M:MudBlazor.MudDataGrid`1.GetSelectionState(System.Collections.Generic.IEnumerable{`0})">
+            <summary>
+            The state of a select-all checkbox covering <paramref name="items"/>: <c>true</c> when every selectable row is selected, <c>false</c> when none of them is, otherwise <c>null</c>.
+            </summary>
+            <param name="items">The rows the checkbox covers, e.g. all displayed rows for the header checkbox or a group's rows for a group footer checkbox.</param>
+        </member>
         <member name="M:MudBlazor.MudDataGrid`1.CommitItemChangesAsync(`0)">
             <summary>
             This method notifies the consumer that changes to the data have been committed
@@ -14196,6 +14366,14 @@
             Return <see cref="F:MudBlazor.DataGridEditFormAction.KeepOpen"/> to prevent the commit and keep the row in edit mode.
             </remarks>
             <returns>A task that represents the asynchronous operation.</returns>
+        </member>
+        <member name="M:MudBlazor.MudDataGrid`1.ActivateRowBehaviorsAsync(`0)">
+            <summary>
+            Applies the row-level side effects that should occur on any click interaction with a row
+            or one of its cells: edit activation (when configured) and selection update.
+            Both <see cref="M:MudBlazor.MudDataGrid`1.OnRowClickedAsync(Microsoft.AspNetCore.Components.Web.MouseEventArgs,`0,System.Int32)"/> and <see cref="M:MudBlazor.MudDataGrid`1.OnCellClickedAsync(Microsoft.AspNetCore.Components.Web.MouseEventArgs,`0,System.Int32,System.Int32,MudBlazor.Column{`0})"/> delegate here
+            so that new row-click behaviors only need to be added in one place.
+            </summary>
         </member>
         <member name="M:MudBlazor.MudDataGrid`1.GetFilteredItemsCount">
             <summary>
@@ -17945,6 +18123,9 @@
             The value in <see cref="P:MudBlazor.MudBaseInput`1.Text"/> is included in this event.
             </remarks>
         </member>
+        <member name="P:MudBlazor.MudDebouncedInput`1.EffectiveImmediate">
+            <inheritdoc />
+        </member>
         <member name="M:MudBlazor.MudDebouncedInput`1.UpdateTextPropertyAsync(System.Boolean)">
             <inheritdoc />
         </member>
@@ -17954,7 +18135,7 @@
         <member name="M:MudBlazor.MudDebouncedInput`1.ValidateValue">
             <inheritdoc />
         </member>
-        <member name="M:MudBlazor.MudDebouncedInput`1.OnParametersSet">
+        <member name="M:MudBlazor.MudDebouncedInput`1.OnInitialized">
             <inheritdoc />
         </member>
         <member name="M:MudBlazor.MudDebouncedInput`1.DisposeAsyncCore">
@@ -18666,6 +18847,18 @@
             <typeparam name="T">The type of item being listed.</typeparam>
             <seealso cref="T:MudBlazor.MudListItem`1"/>
             <seealso cref="T:MudBlazor.MudListSubheader"/>
+        </member>
+        <member name="P:MudBlazor.MudList`1.HasSingleSelection">
+            <summary>
+            Whether a single selection actually exists, as opposed to <see cref="P:MudBlazor.MudList`1.SelectedValue"/> merely sitting at its default.
+            </summary>
+            <remarks>
+            <c>default(T)</c> is <c>null</c> for reference types but a real value for value types, so an unsupplied <see cref="P:MudBlazor.MudList`1.SelectedValue"/> would otherwise select whichever item happens to equal it, such as an enum's <c>0</c> member (#13358).
+            Read from the top-level list because nested lists never receive <see cref="P:MudBlazor.MudList`1.SelectedValue"/> themselves.
+            </remarks>
+        </member>
+        <member name="M:MudBlazor.MudList`1.SetParametersAsync(Microsoft.AspNetCore.Components.ParameterView)">
+            <inheritdoc />
         </member>
         <member name="P:MudBlazor.MudList`1.Color">
             <summary>
@@ -20615,8 +20808,8 @@
             </summary>
             <param name="title">name of the section will be displayed in the navigation</param>
             <param name="id">id of the section. It will be appending to the current url, if the section becomes active</param>
-            <param name="level">The level within the hierachy</param>
-            <param name="parent">The parent of the section. null if there is no parent or no hierachy</param>
+            <param name="level">The level within the hierarchy</param>
+            <param name="parent">The parent of the section. null if there is no parent or no hierarchy</param>
         </member>
         <member name="T:MudBlazor.MudPagination">
             <summary>
@@ -25052,6 +25245,14 @@
             Sets the item to edit.
             </summary>
             <param name="item">The item to edit.</param>
+        </member>
+        <member name="M:MudBlazor.MudTable`1.GetFilteredItemIndex(`0)">
+            <summary>
+            Gets the position of an item within <see cref="P:MudBlazor.MudTable`1.FilteredItems"/>, or <c>-1</c> when it is not present.
+            </summary>
+            <remarks>
+            Equivalent to <c>FilteredItems.ToList().IndexOf(item)</c> without copying the filtered list, which the row markup would otherwise do once per rendered row.
+            </remarks>
         </member>
         <member name="M:MudBlazor.MudTable`1.ContainsItem(System.Object)">
             <summary>
@@ -34856,7 +35057,11 @@
             </summary>
             <param name="key">The name of the string resource.</param>
             <param name="arguments">The list of arguments to be passed to the string resource.</param>
-            <returns>The string resource as a <see cref="T:Microsoft.Extensions.Localization.LocalizedString" />.</returns>
+            <returns>The localized string resource.</returns>
+            <remarks>
+            Returns <see cref="T:System.String" /> rather than <see cref="T:Microsoft.Extensions.Localization.LocalizedString" /> so components can pass the result straight to a parameter or attribute.
+            Blazor compares parameters by value only for known-immutable types, so a freshly allocated <see cref="T:Microsoft.Extensions.Localization.LocalizedString" /> would read as changed on every render and rebuild the child.
+            </remarks>
         </member>
         <member name="P:MudBlazor.InternalMudLocalizer.Item(System.Enum)">
             <summary>
