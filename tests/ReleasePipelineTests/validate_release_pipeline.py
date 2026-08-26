@@ -24,6 +24,14 @@ def raw_steps(job: dict) -> str:
     return "\n".join(str(step.get("run", "")) for step in job.get("steps", []))
 
 
+def artifact_names(job: dict, action: str) -> list[str]:
+    return [
+        str(step.get("with", {}).get("name", ""))
+        for step in job.get("steps", [])
+        if str(step.get("uses", "")).startswith(f"actions/{action}@")
+    ]
+
+
 def assert_sha_pinned(path: Path) -> None:
     raw = path.read_text(encoding="utf-8")
     uses = re.findall(r"^\s*uses:\s*([^\s#]+)(?:\s+#\s*(.+))?$", raw, re.MULTILINE)
@@ -85,6 +93,9 @@ def validate_prepare() -> None:
         fail("prepare publish executes artifact text as shell code")
     if "No release preparation changes were produced" in path.read_text(encoding="utf-8"):
         fail("prepare retry path still aborts when the prepared branch has no new diff")
+    expected_artifact = "release-preparation-${{ github.run_id }}-${{ github.run_attempt }}"
+    if artifact_names(validate, "upload-artifact") != [expected_artifact] or artifact_names(publish, "download-artifact") != [expected_artifact]:
+        fail("prepare artifacts are not paired by run and separated by run attempt")
 
 
 def validate_release() -> None:
@@ -111,7 +122,7 @@ def validate_release() -> None:
         fail("release build job is not contents-read-only")
     assert_checkout_safe(build, "release build")
     build_raw = raw_steps(build)
-    for token in ("dotnet pack", "type=oci", "provenance=mode=max", "sbom=true", "sha256sum"):
+    for token in ("dotnet pack", "type=oci", "provenance=mode=max", "sbom=true", "sha256sum", "image-manifest-digest.txt"):
         if token not in build_raw:
             fail(f"release build missing {token}")
     attest = jobs["attest"]
@@ -157,6 +168,39 @@ def validate_release() -> None:
     public = steps.get("Verify published release and no-op", {})
     if public.get("if") != "steps.release.outputs.state == 'published'" or "no publication mutation required" not in public.get("run", ""):
         fail("published release retry is not a verified no-op")
+    public_raw = str(public.get("run", ""))
+    for anchor in (
+        "cmp --silent release-artifacts/release-assets/SHA256SUMS /tmp/public-assets/SHA256SUMS",
+        "expected_nuget_checksum",
+        "expected_image_digest",
+        "expected_config",
+        "recorded_commit",
+        "recorded_version",
+        "recorded_nuget_checksum",
+        '"$recorded_commit" == "$MERGE_SHA"',
+        '"$recorded_version" == "$VERSION"',
+        '"$recorded_nuget_checksum" == "$expected_nuget_checksum"',
+        '"$recorded_digest" == "$expected_image_digest"',
+        '"$recorded_config" == "$expected_config"',
+    ):
+        if anchor not in public_raw:
+            fail(f"published release is not anchored to same-run identity: {anchor}")
+    notes_raw = str(steps.get("Record idempotent checksums and provenance in draft notes", {}).get("run", ""))
+    if "Version:" not in notes_raw:
+        fail("release metadata block does not record version identity")
+    release_lookup_raw = str(steps.get("Detect draft versus published GitHub release", {}).get("run", ""))
+    for target_guard in ("target_commitish", '"$release_target" == "$MERGE_SHA"', "draft target does not match merge SHA"):
+        if target_guard not in release_lookup_raw:
+            fail(f"existing draft target is not fail-closed: {target_guard}")
+    finalize_raw = str(steps.get("Finalize draft GitHub release last", {}).get("run", ""))
+    for tag_guard in ("git/ref/tags/$TAG", "tagged_sha", '"$tagged_sha" == "$MERGE_SHA"'):
+        if tag_guard not in finalize_raw:
+            fail(f"finalized Git tag is not verified against merge SHA: {tag_guard}")
+    expected_artifact = "mudx-release-${{ github.run_id }}-${{ github.run_attempt }}"
+    if artifact_names(build, "upload-artifact") != [expected_artifact]:
+        fail("release upload artifact is not unique to the run attempt")
+    if artifact_names(attest, "download-artifact") != [expected_artifact] or artifact_names(publish, "download-artifact") != [expected_artifact]:
+        fail("release consumers are not paired to the same run attempt artifact")
 
 
 def validate_host() -> None:

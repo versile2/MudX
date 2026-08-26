@@ -134,17 +134,20 @@ jobs:
               descriptor = next(item for item in manifests(index) if item.get('platform', {}).get('architecture') == 'amd64' and item.get('platform', {}).get('os') == 'linux')
               manifest = json.loads((root / 'blobs' / 'sha256' / descriptor['digest'].split(':', 1)[1]).read_text())
               pathlib.Path('release-artifacts/release-assets/image-config-digest.txt').write_text(manifest['config']['digest'] + '\n')
+              if len(index['manifests']) != 1:
+                  raise SystemExit('OCI layout must contain exactly one publication descriptor')
+              pathlib.Path('release-artifacts/release-assets/image-manifest-digest.txt').write_text(index['manifests'][0]['digest'] + '\n')
           PY
           printf 'VERSION=%s\nTAG=%s\nMERGE_SHA=%s\nSOURCE=https://github.com/%s\nWORKFLOW=%s\n' \
             "$VERSION" "$TAG" "$MERGE_SHA" "$GITHUB_REPOSITORY" "$GITHUB_WORKFLOW_REF" \
             >release-artifacts/release-assets/release.env
-          (cd release-artifacts/release-assets && sha256sum ./*.nupkg ./*.snupkg image-config-digest.txt release.env >SHA256SUMS)
+          (cd release-artifacts/release-assets && sha256sum ./*.nupkg ./*.snupkg image-config-digest.txt image-manifest-digest.txt release.env >SHA256SUMS)
           (cd release-artifacts && sha256sum docs-image.oci.tar >OCI_SHA256SUM)
 
       - name: Upload same-run release artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: mudx-release-${{ github.run_id }}
+          name: mudx-release-${{ github.run_id }}-${{ github.run_attempt }}
           path: release-artifacts/
           if-no-files-found: error
           retention-days: 7
@@ -161,7 +164,7 @@ jobs:
       - name: Download release artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: mudx-release-${{ github.run_id }}
+          name: mudx-release-${{ github.run_id }}-${{ github.run_attempt }}
           path: release-artifacts
       - name: Create GitHub artifact provenance
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
@@ -185,7 +188,7 @@ jobs:
       - name: Download same-run release artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: mudx-release-${{ github.run_id }}
+          name: mudx-release-${{ github.run_id }}-${{ github.run_attempt }}
           path: release-artifacts
 
       - name: Verify checksums, attestation, and release identity
@@ -231,7 +234,16 @@ jobs:
             "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG")
           case "$status" in
             200)
-              if [[ "$(jq -r '.draft' "$response")" == true ]]; then state=draft; else state=published; fi
+              if [[ "$(jq -r '.draft' "$response")" == true ]]; then
+                release_target=$(jq -r '.target_commitish' "$response")
+                [[ "$release_target" == "$MERGE_SHA" ]] || {
+                  echo "existing draft target does not match merge SHA" >&2
+                  exit 1
+                }
+                state=draft
+              else
+                state=published
+              fi
               ;;
             404) state=absent ;;
             *) echo "GitHub release lookup failed with HTTP $status" >&2; exit 1 ;;
@@ -258,6 +270,7 @@ jobs:
           set -Eeuo pipefail
           echo "$GH_TOKEN" | skopeo login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           expected_config=$(cat release-artifacts/release-assets/image-config-digest.txt)
+          expected_manifest=$(cat release-artifacts/release-assets/image-manifest-digest.txt)
           local_labels=$(skopeo inspect --config oci-archive:release-artifacts/docs-image.oci.tar | jq -c '.config.Labels')
           [[ "$(jq -r '."org.opencontainers.image.revision"' <<<"$local_labels")" == "$MERGE_SHA" ]] || exit 1
           [[ "$(jq -r '."org.opencontainers.image.source"' <<<"$local_labels")" == "https://github.com/$GITHUB_REPOSITORY" ]] || exit 1
@@ -281,6 +294,7 @@ jobs:
           fi
           image_digest=$(skopeo inspect --format '{{.Digest}}' "$commit_ref")
           [[ "$image_digest" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 1
+          [[ "$image_digest" == "$expected_manifest" ]] || { echo "published image manifest differs from attested build" >&2; exit 1; }
           version_ref="docker://$IMAGE_REPOSITORY:$VERSION"
           version_digest=$(skopeo inspect --format '{{.Digest}}' "$version_ref" 2>/dev/null || true)
           if [[ -z "$version_digest" ]]; then
@@ -384,6 +398,8 @@ jobs:
           start = '<!-- mudx-release-metadata:start -->'
           end = '<!-- mudx-release-metadata:end -->'
           block = f'''{start}
+          Version: `{os.environ['VERSION']}`
+
           Commit: `{os.environ['MERGE_SHA']}`
 
           Docs image: `{os.environ['IMAGE_REPOSITORY']}@{os.environ['IMAGE_DIGEST']}`
@@ -409,17 +425,35 @@ jobs:
           [[ "${{ steps.nuget.outputs.exists }}" == true ]] || { echo "Published release has no matching NuGet package" >&2; exit 1; }
           mkdir /tmp/public-assets
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir /tmp/public-assets
+          cmp --silent release-artifacts/release-assets/SHA256SUMS /tmp/public-assets/SHA256SUMS || {
+            echo "Published checksum manifest does not match this attested build" >&2
+            exit 1
+          }
           (cd /tmp/public-assets && sha256sum --check SHA256SUMS)
           (cd /tmp/public-assets && { awk '{sub(/^\.\//, "", $2); print $2}' SHA256SUMS; echo SHA256SUMS; } | sort > /tmp/expected-assets)
           find /tmp/public-assets -maxdepth 1 -type f -printf '%f\n' | sort > /tmp/actual-assets
           diff --unified /tmp/expected-assets /tmp/actual-assets
           notes=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)
           grep -q 'mudx-release-metadata:start' <<<"$notes"
+          expected_nuget_checksum=$(awk '/\.nupkg$/ && $2 !~ /\.snupkg$/ {print $1; exit}' release-artifacts/release-assets/SHA256SUMS)
+          expected_image_digest=$(cat release-artifacts/release-assets/image-manifest-digest.txt)
+          expected_config=$(cat release-artifacts/release-assets/image-config-digest.txt)
           # The sed capture expression is intentionally literal.
+          # shellcheck disable=SC2016
+          recorded_version=$(sed -n 's/.*Version: `\([^`]*\)`.*/\1/p' <<<"$notes")
+          # shellcheck disable=SC2016
+          recorded_commit=$(sed -n 's/.*Commit: `\([0-9a-f]*\)`.*/\1/p' <<<"$notes")
           # shellcheck disable=SC2016
           recorded_digest=$(sed -n 's/.*Docs image: `[^@]*@\(sha256:[0-9a-f]*\)`.*/\1/p' <<<"$notes")
           # shellcheck disable=SC2016
           recorded_config=$(sed -n 's/.*Image config: `\(sha256:[0-9a-f]*\)`.*/\1/p' <<<"$notes")
+          # shellcheck disable=SC2016
+          recorded_nuget_checksum=$(sed -n 's/.*NuGet SHA-256: `\([0-9a-f]*\)`.*/\1/p' <<<"$notes")
+          [[ "$recorded_version" == "$VERSION" ]] || exit 1
+          [[ "$recorded_commit" == "$MERGE_SHA" ]] || exit 1
+          [[ "$recorded_nuget_checksum" == "$expected_nuget_checksum" ]] || exit 1
+          [[ "$recorded_digest" == "$expected_image_digest" ]] || exit 1
+          [[ "$recorded_config" == "$expected_config" ]] || exit 1
           [[ "$recorded_digest" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 1
           [[ "$recorded_config" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 1
           echo "$GH_TOKEN" | skopeo login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
@@ -443,3 +477,21 @@ jobs:
         run: |
           set -Eeuo pipefail
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+          tag_object=""
+          for _ in 1 2 3 4 5; do
+            if tag_object=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" 2>/dev/null); then break; fi
+            sleep 2
+          done
+          [[ -n "$tag_object" ]] || { echo "Finalized Git tag was not created" >&2; exit 1; }
+          tagged_sha=$(jq -r '.object.sha' <<<"$tag_object")
+          tagged_type=$(jq -r '.object.type' <<<"$tag_object")
+          for _ in 1 2 3 4 5; do
+            [[ "$tagged_type" == tag ]] || break
+            tag_object=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tagged_sha")
+            tagged_sha=$(jq -r '.object.sha' <<<"$tag_object")
+            tagged_type=$(jq -r '.object.type' <<<"$tag_object")
+          done
+          [[ "$tagged_type" == commit && "$tagged_sha" == "$MERGE_SHA" ]] || {
+            echo "Finalized Git tag does not resolve to merge SHA" >&2
+            exit 1
+          }

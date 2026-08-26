@@ -20,14 +20,14 @@ The four `old-*` workflows are disabled historical references and must not be ru
 
 ## Credential boundary
 
-`prepare-release.yml` performs versioning, generation, build, and tests in a `contents: read` job with `persist-credentials: false`. It uploads a checksummed Git bundle. A separate write-capable job downloads that same-run bundle, verifies it, pushes only the prepared commit when needed, and creates or repairs the PR. It does not execute repository build code.
+`prepare-release.yml` performs versioning, generation, build, and tests in a `contents: read` job with `persist-credentials: false`. It uploads a checksummed Git bundle named with both the workflow run and attempt. A separate write-capable job downloads that exact attempt's bundle, verifies it, pushes only the prepared commit when needed, and creates or repairs the PR. It does not execute repository build code.
 
 `release.yml` has four jobs:
 
 1. `gate` verifies merged, labelled, same-repository, approved PR provenance.
 2. `build` checks out the exact merge with `contents: read`, no persisted credential, and no publication secret. It regenerates, builds, tests, packs, validates static assets, and builds one OCI image.
 3. `attest` creates GitHub artifact provenance in a job isolated from repository execution.
-4. `publish` downloads and verifies the same-run checksums and attestations, then waits on the protected `release` Environment. GitHub, GHCR, and NuGet credentials are scoped only to the steps that use them.
+4. `publish` downloads and verifies the exact run-attempt checksums and attestations, then waits on the protected `release` Environment. A full workflow rerun uses a distinct artifact name and cannot collide with a prior attempt. GitHub, GHCR, and NuGet credentials are scoped only to the steps that use them.
 
 ## Release identity and provenance
 
@@ -35,15 +35,15 @@ The build emits NuGet packages, checksums, an OCI image, OCI provenance/SBOM att
 
 Publication verifies GitHub artifact attestations before use. An existing `sha-<full-merge-sha>` image is reusable only when its config digest and OCI source/workflow/revision labels match the attested same-run artifact. Version and `stable` tags are read back and must resolve to the expected manifest digest. Old versioned images are never deleted.
 
-The final release notes contain one delimited metadata block with merge SHA, image manifest/config digests, NuGet SHA-256, and provenance. Retries replace that block instead of appending duplicates.
+The final release notes contain one delimited metadata block with version, merge SHA, image manifest/config digests, NuGet SHA-256, and provenance. Retries replace that block instead of appending duplicates.
 
 ## Retry behavior
 
 - A prepare retry after branch push but before PR creation verifies and reuses the prepared branch, skips an unnecessary push, and still creates or repairs the PR.
-- A missing GitHub release is created as a draft. Draft assets may be repaired with replacement enabled.
-- A public release is never clobbered. Its checksummed assets, metadata block, NuGet semantic identity, and commit/version/stable image digests are verified, then the workflow performs no publication mutation.
+- A missing GitHub release is created as a draft. An existing draft is reusable only when `target_commitish` is the exact merge SHA. Draft assets may then be repaired with replacement enabled.
+- A public release is never clobbered. Its checksum manifest must be byte-identical to the current run-attempt's attested manifest; its exact assets and checksums must pass, and its metadata must match this build's version, merge SHA, NuGet checksum, and image/config digests. It then performs no publication mutation.
 - NuGet duplicates are accepted only when all package payload entries match semantically. `.signature.p7s` and the signing-specific `[Content_Types].xml` are excluded so NuGet.org repository signing does not create a false mismatch. Publication is downloaded and checked again after any push race.
-- `stable` moves only after NuGet succeeds and is verified back to the expected digest. The GitHub release is finalized last.
+- `stable` moves only after NuGet succeeds and is verified back to the expected digest. The GitHub release is finalized last, and the resulting Git tag is peeled if necessary and verified to resolve to the exact merge SHA.
 
 ## Debian host templates
 
