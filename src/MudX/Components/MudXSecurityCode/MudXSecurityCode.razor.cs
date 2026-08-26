@@ -261,6 +261,12 @@ namespace MudX
             if (IsValidInput(CodeItems[index].PatternChar, val))
             {
                 CodeItems[index].Value = val;
+                if (IsCodeComplete())
+                {
+                    await CompleteInteractionAsync();
+                    return;
+                }
+
                 // Find next editable index
                 int next = index + 1;
                 while (next < CodeItems.Count && !CodeItems[next].IsEditable)
@@ -271,12 +277,6 @@ namespace MudX
                 if (next < CodeItems.Count)
                 {
                     await MoveFocus(next);
-                }
-                // We're at the last editable index — publish, validate, and complete.
-                else
-                {
-                    await CompleteInteractionAsync();
-                    return;
                 }
             }
             else
@@ -342,6 +342,13 @@ namespace MudX
             return false;
         }
 
+        private bool IsCodeComplete()
+        {
+            var editableItems = CodeItems.Where(item => item.IsEditable).ToList();
+            return editableItems.Count > 0 && editableItems.All(item =>
+                !string.IsNullOrEmpty(item.Value) && IsValidInput(item.PatternChar, item.Value));
+        }
+
         /// <summary>
         /// Handles the clipboard paste event triggered in javascript by processing the pasted text and updating the corresponding code items.
         /// </summary>
@@ -371,6 +378,7 @@ namespace MudX
 
             var chars = text.ToCharArray();
             int charIndex = 0;
+            int acceptedEditableCount = 0;
 
             for (int i = index; i < CodeItems.Count && charIndex < chars.Length; i++)
             {
@@ -394,6 +402,7 @@ namespace MudX
                     pasteChar = chars[charIndex].ToString();
                     CodeItems[i].Value = pasteChar;
                     charIndex++;
+                    acceptedEditableCount++;
                 }
                 else
                 {
@@ -417,11 +426,7 @@ namespace MudX
                 }
             }
 
-            var editableItems = CodeItems.Where(item => item.IsEditable).ToList();
-            var isComplete = editableItems.Count > 0 && editableItems.All(item =>
-                !string.IsNullOrEmpty(item.Value) && IsValidInput(item.PatternChar, item.Value));
-
-            if (isComplete)
+            if (acceptedEditableCount > 0 && IsCodeComplete())
             {
                 await CompleteInteractionAsync();
                 return;
@@ -492,10 +497,15 @@ namespace MudX
                 }
             }
 
-            _isInternalChange = true;
-            await _codeState.SetValueAsync(result);
-            await CodeChanged.InvokeAsync(result);
-            _isInternalChange = false;
+            try
+            {
+                _isInternalChange = true;
+                await _codeState.SetValueAsync(result);
+            }
+            finally
+            {
+                _isInternalChange = false;
+            }
             StateHasChanged();
             return result;
         }

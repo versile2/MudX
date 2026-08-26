@@ -177,6 +177,30 @@ namespace MudX.UnitTests.Components
         }
 
         [Test]
+        public async Task SecurityCode_ShouldCompleteWhenEarlierMissingItemIsFilledLast()
+        {
+            var moduleMock = Context.JSInterop.SetupModule(AssemblyInfo.ModulePath("mudxSecurityCode.js"));
+            moduleMock.Setup<bool>("init", _ => true);
+            moduleMock.Setup<bool>("focusBlock", _ => true);
+            var publishedValues = new List<string?>();
+            var completedValues = new List<string?>();
+            var comp = Context.Render<MudXSecurityCode>(
+                parameters => parameters
+                    .Add(p => p.Pattern, "##")
+                    .Add(p => p.CodeChanged, EventCallback.Factory.Create<string?>(this, value => publishedValues.Add(value)))
+                    .Add(p => p.OnCompleted, EventCallback.Factory.Create<string?>(this, value => completedValues.Add(value))));
+            var form = comp.FindComponent<MudForm>();
+
+            await comp.InvokeAsync(() => comp.FindAll(".mudx-code-item input")[1].Input("2"));
+            await comp.InvokeAsync(() => comp.FindAll(".mudx-code-item input")[0].Input("1"));
+
+            comp.Instance._codeState.Value.Should().Be("12");
+            publishedValues.Should().Contain("12");
+            form.Instance.IsValid.Should().BeTrue();
+            completedValues.Should().Equal("12");
+        }
+
+        [Test]
         public async Task SecurityCode_ShouldPublishAndValidateBeforeCompletingTerminalInput()
         {
             var moduleMock = Context.JSInterop.SetupModule(AssemblyInfo.ModulePath("mudxSecurityCode.js"));
@@ -317,6 +341,7 @@ namespace MudX.UnitTests.Components
         {
             var firstPublicationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var releaseFirstPublication = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var publishedValues = new List<string?>();
             var completedValues = new List<string?>();
             var comp = Context.Render<MudXSecurityCode>(
                 parameters => parameters
@@ -324,6 +349,7 @@ namespace MudX.UnitTests.Components
                     .Add(p => p.CodeChanged, EventCallback.Factory.Create<string?>(this,
                         new Func<string?, Task>(async value =>
                         {
+                            publishedValues.Add(value);
                             if (value == "1")
                             {
                                 firstPublicationEntered.TrySetResult();
@@ -344,7 +370,27 @@ namespace MudX.UnitTests.Components
             await firstInteraction;
 
             comp.Instance._codeState.Value.Should().Be("2");
+            publishedValues.Should().Equal("1", "2");
             completedValues.Should().Equal("2");
+        }
+
+        [Test]
+        public async Task SecurityCode_ShouldNotCompleteNoOpInvalidPasteIntoCompleteCode()
+        {
+            var completionCount = 0;
+            var comp = Context.Render<MudXSecurityCode>(
+                parameters => parameters
+                    .Add(p => p.Pattern, "#")
+                    .Add(p => p.OnCompleted, EventCallback.Factory.Create<string?>(this, _ => completionCount++)));
+
+            await comp.InvokeAsync(() => comp.Find(".mudx-code-item input").Input("7"));
+            completionCount.Should().Be(1);
+
+            await comp.InvokeAsync(() =>
+                comp.Instance.ClipboardPasteEvent("mudx-code-0-random-guid", "X"));
+
+            comp.Instance._codeState.Value.Should().Be("7");
+            completionCount.Should().Be(1);
         }
 
         [Test]

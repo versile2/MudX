@@ -52,6 +52,8 @@ export function focusNextAfterContainer(container) {
 }
 
 function focusNextElement(container) {
+    if (!container.contains(document.activeElement)) return;
+
     const focusableSelector = 'a:not([disabled]), button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([disabled]):not([tabindex="-1"])';
     const focusableElements = Array.from(document.querySelectorAll(focusableSelector))
         .filter(element => {
