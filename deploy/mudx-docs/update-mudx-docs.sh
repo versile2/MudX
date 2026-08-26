@@ -5,19 +5,17 @@ script_directory=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 docker_bin=${DOCKER_BIN:-docker}
 compose_file=${COMPOSE_FILE:-$script_directory/compose.yml}
 env_file=${ENV_FILE:-$script_directory/mudx-docs.env}
-state_directory=${STATE_DIR:-$script_directory/state}
+lock_file=${LOCK_FILE:-/run/lock/mudx-docs-update.lock}
 image_repository=${IMAGE_REPOSITORY:-ghcr.io/mudxtra/mudx/mudxdocwebsite}
 stable_reference="$image_repository:stable"
 
 candidate_env=""
 next_env=""
-next_state=""
 
 cleanup() {
     rm -f \
         "${candidate_env:-}" \
-        "${next_env:-}" \
-        "${next_state:-}"
+        "${next_env:-}"
 }
 trap cleanup EXIT
 
@@ -33,11 +31,12 @@ new_temporary_file() {
     printf '%s\n' "$temporary"
 }
 
-read_current_image() {
-    local -a configured_images
-    mapfile -t configured_images < <(sed -n 's/^MUDX_DOCS_IMAGE=//p' "$env_file")
-    ((${#configured_images[@]} == 1)) || fail "ENV_FILE must contain exactly one MUDX_DOCS_IMAGE entry"
-    printf '%s\n' "${configured_images[0]}"
+read_single_value() {
+    local key=$1
+    local -a values
+    mapfile -t values < <(sed -n "s/^${key}=//p" "$env_file")
+    ((${#values[@]} == 1)) || fail "ENV_FILE must contain exactly one $key entry"
+    printf '%s\n' "${values[0]}"
 }
 
 validate_immutable_reference() {
@@ -57,10 +56,17 @@ compose_up() {
 
 [[ -f "$compose_file" ]] || fail "Compose file not found: $compose_file"
 [[ -f "$env_file" ]] || fail "Environment file not found: $env_file"
+mkdir -p "$(dirname "$lock_file")"
+exec 9>"$lock_file"
+flock -n 9 || fail "Another MudX docs update is already running"
 
-current_reference=$(read_current_image)
+current_reference=$(read_single_value MUDX_DOCS_IMAGE)
+recorded_current=$(read_single_value CURRENT_DIGEST)
+previous_digest=$(read_single_value PREVIOUS_DIGEST)
 validate_immutable_reference "$current_reference"
 current_digest=${current_reference#*@}
+[[ "$recorded_current" == "$current_digest" ]] || fail "CURRENT_DIGEST does not match MUDX_DOCS_IMAGE"
+[[ -z "$previous_digest" || "$previous_digest" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "PREVIOUS_DIGEST is invalid"
 
 echo "Pulling the stable MudX docs image"
 "$docker_bin" pull "$stable_reference"
@@ -80,9 +86,9 @@ if [[ "$candidate_digest" == "$current_digest" ]]; then
     exit 0
 fi
 
-mkdir -p "$state_directory"
 candidate_env=$(new_temporary_file "$env_file")
-printf 'MUDX_DOCS_IMAGE=%s\n' "$candidate_reference" >"$candidate_env"
+printf 'MUDX_DOCS_IMAGE=%s\nCURRENT_DIGEST=%s\nPREVIOUS_DIGEST=%s\n' \
+    "$candidate_reference" "$candidate_digest" "$current_digest" >"$candidate_env"
 
 echo "Deploying candidate digest $candidate_digest"
 if ! compose_up "$candidate_env"; then
@@ -93,14 +99,13 @@ if ! compose_up "$candidate_env"; then
     fail "Candidate failed health validation; prior digest restored"
 fi
 
-next_env=$(new_temporary_file "$env_file")
-next_state=$(new_temporary_file "$state_directory/digests.env")
-printf 'MUDX_DOCS_IMAGE=%s\n' "$candidate_reference" >"$next_env"
-printf 'CURRENT_DIGEST=%s\nPREVIOUS_DIGEST=%s\n' \
-    "$candidate_digest" \
-    "$current_digest" >"$next_state"
+if [[ ${MUDX_UPDATE_FAILPOINT:-} == after-health ]]; then
+    fail "Injected interruption after candidate health succeeded"
+fi
 
-mv "$next_state" "$state_directory/digests.env"
+next_env=$(new_temporary_file "$env_file")
+printf 'MUDX_DOCS_IMAGE=%s\nCURRENT_DIGEST=%s\nPREVIOUS_DIGEST=%s\n' \
+    "$candidate_reference" "$candidate_digest" "$current_digest" >"$next_env"
 mv "$next_env" "$env_file"
 
 echo "MudX docs updated to digest $candidate_digest"

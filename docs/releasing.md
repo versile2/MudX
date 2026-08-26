@@ -1,109 +1,86 @@
 # Releasing MudX
 
-MudX releases are prepared through a reviewed pull request and published from the exact merge commit. The release pipeline does not approve or merge its own changes.
+MudX releases use a reviewed pull request, unprivileged build jobs, same-run attested artifacts, and a separately approved publication job. No workflow approves or merges its own pull request.
 
-## Workflow order
+## Required repository setup
 
-1. Merge the release/deployment infrastructure pull request into `dev`.
-2. For the current release candidate, keep MudXtra/MudX PR #65 green and reviewed. Apply the `release` label only after the infrastructure workflow is present on `dev` and PR #65 is ready to publish.
-3. For later releases, run **Prepare MudX release** with a stable SemVer value such as `9.9.0`. Do not include a `v`, prerelease suffix, or build metadata.
-4. Review the generated `release/<version>` pull request. It updates the MudX project version, regenerates tracked assets, runs focused checks, and applies the `release` label. A human still owns approval and merge.
-5. Merge the labeled pull request into `dev`. **Release MudX** runs only for a merged pull request into `dev` that carries the `release` label.
+Before enabling this pipeline, create a GitHub Environment named `release` and configure required human reviewers. Do not add deployment-branch rules that exclude the current release PR. Keep branch protection on `dev` configured to require approving reviews.
 
-Do not run the four `old-*` workflows. They remain in source only as disabled historical references.
+The workflow also verifies the merged pull request's final `reviewDecision` is `APPROVED`, requires the `release` label, and requires the head repository to equal `MudXtra/MudX`. The protected Environment is a second human gate before publication credentials become available. These settings are external approval gates; source changes do not configure them.
 
-## Release identity and ordering
+## Workflow order and PR #65
 
-`release.yml` checks out `github.event.pull_request.merge_commit_sha` and derives the package version from `src/MudX/MudX.csproj`. The release tag is `v<version>`. An existing tag must already point to that exact merge commit or the workflow stops.
+1. Merge this infrastructure change into `dev` after review.
+2. Keep the already-open same-repository PR #65 green and approved. Apply or retain its `release` label only when it is ready to publish. PR #65 does not need a `release/*` head branch; same-repository provenance, final approval, merge into `dev`, the label, and the protected Environment are the release identity.
+3. Merge PR #65 into `dev`. `release.yml` checks out its exact merge SHA and derives the version from `src/MudX/MudX.csproj`.
+4. For later releases, run **Prepare MudX release** with stable SemVer such as `9.9.0`. Do not include `v`, prerelease data, or build metadata.
+5. Review and approve the generated `release/<version>` PR, then merge it into `dev` after applying the normal release gates.
 
-The workflow regenerates tracked assets and requires a clean diff before it builds release artifacts. It then:
+The four `old-*` workflows are disabled historical references and must not be run.
 
-1. builds and tests the focused .NET projects;
-2. packs the NuGet package and symbols once;
-3. validates package static assets;
-4. creates or resumes a draft GitHub release and uploads the packages;
-5. builds the docs image from the same checkout and publishes `:<version>` and `:sha-<full-merge-sha>` as immutable references;
-6. publishes to NuGet with `--skip-duplicate`;
-7. promotes the verified image digest to the mutable `:stable` pointer;
-8. records the merge commit and image digest in the release notes;
-9. finalizes the GitHub release last.
+## Credential boundary
 
-The version and commit image tags must resolve to the same digest. Old versioned images are never deleted by this pipeline.
+`prepare-release.yml` performs versioning, generation, build, and tests in a `contents: read` job with `persist-credentials: false`. It uploads a checksummed Git bundle. A separate write-capable job downloads that same-run bundle, verifies it, pushes only the prepared commit when needed, and creates or repairs the PR. It does not execute repository build code.
+
+`release.yml` has four jobs:
+
+1. `gate` verifies merged, labelled, same-repository, approved PR provenance.
+2. `build` checks out the exact merge with `contents: read`, no persisted credential, and no publication secret. It regenerates, builds, tests, packs, validates static assets, and builds one OCI image.
+3. `attest` creates GitHub artifact provenance in a job isolated from repository execution.
+4. `publish` downloads and verifies the same-run checksums and attestations, then waits on the protected `release` Environment. GitHub, GHCR, and NuGet credentials are scoped only to the steps that use them.
+
+## Release identity and provenance
+
+The build emits NuGet packages, checksums, an OCI image, OCI provenance/SBOM attestations, source/workflow/revision labels, and the expected image-config digest. Docker SDK/runtime bases are pinned by digest.
+
+Publication verifies GitHub artifact attestations before use. An existing `sha-<full-merge-sha>` image is reusable only when its config digest and OCI source/workflow/revision labels match the attested same-run artifact. Version and `stable` tags are read back and must resolve to the expected manifest digest. Old versioned images are never deleted.
+
+The final release notes contain one delimited metadata block with merge SHA, image manifest/config digests, NuGet SHA-256, and provenance. Retries replace that block instead of appending duplicates.
 
 ## Retry behavior
 
-A failed job may be rerun from the same merged-pull-request event.
+- A prepare retry after branch push but before PR creation verifies and reuses the prepared branch, skips an unnecessary push, and still creates or repairs the PR.
+- A missing GitHub release is created as a draft. Draft assets may be repaired with replacement enabled.
+- A public release is never clobbered. Its checksummed assets, metadata block, NuGet semantic identity, and commit/version/stable image digests are verified, then the workflow performs no publication mutation.
+- NuGet duplicates are accepted only when all package payload entries match semantically. `.signature.p7s` and the signing-specific `[Content_Types].xml` are excluded so NuGet.org repository signing does not create a false mismatch. Publication is downloaded and checked again after any push race.
+- `stable` moves only after NuGet succeeds and is verified back to the expected digest. The GitHub release is finalized last.
 
-- An existing Git tag is accepted only when it points to the same merge commit.
-- An existing draft release is resumed.
-- Release assets are uploaded with replacement enabled so a partial draft can be repaired.
-- NuGet publication uses `--skip-duplicate`.
-- An existing `sha-<full-merge-sha>` image is reused after its digest is validated.
-- An existing version image is accepted only when its digest matches the commit image.
-- `:stable` is not moved until NuGet publication succeeds.
+## Debian host templates
 
-If the GitHub release is already public, confirm its assets, commit, and recorded digest before rerunning. Never delete or retag an immutable version to work around a mismatch; investigate the release inputs instead.
+The templates under `deploy/mudx-docs/` preserve container name `MudX`, bridge networking, `restart: unless-stopped`, and the health contract. Port 4560 is bound only to loopback as `127.0.0.1:4560:8080`; the public reverse proxy remains the only intended external route.
 
-## Host templates
+`mudx-docs.env` is the single authoritative deployment record consumed by Compose:
 
-The Debian host templates are under `deploy/mudx-docs/`:
+```dotenv
+MUDX_DOCS_IMAGE=ghcr.io/mudxtra/mudx/mudxdocwebsite@sha256:<64-hex>
+CURRENT_DIGEST=sha256:<64-hex>
+PREVIOUS_DIGEST=
+```
 
-- `compose.yml` keeps the existing `4560:8080` mapping, bridge networking, `restart: unless-stopped`, and health contract;
-- `mudx-docs.env.example` documents the required immutable image reference;
-- `update-mudx-docs.sh` pulls `:stable`, resolves its digest, performs a health-gated update, and restores the prior digest on failure;
-- `mudx-docs-update.service` and `.timer` provide optional systemd scheduling.
+The updater obtains a nonblocking host `flock`, pulls `:stable` while the current container runs, resolves the repository digest, deploys the candidate with `docker compose up -d --wait`, and atomically replaces that one file only after health succeeds. If interrupted after candidate health but before the atomic rename, the old authoritative record remains valid and the next serialized run safely converges it. Normal health failure restores the prior digest.
 
-Tracked files contain no registry credentials or mutable deployment state. Keep `mudx-docs.env` and the `state/` directory outside version control.
+The systemd unit adds filesystem/kernel/home restrictions, a private temporary directory, restrictive umask, and no-new-privileges. Docker socket access remains root-equivalent; the hardening limits unrelated host access but cannot sandbox Docker itself.
 
-### Private GHCR authentication
+## Install and cutover gates
 
-GHCR remains private in this release slice. Before installation or update, authenticate Docker on the host with an account/token that has package read access. Store that credential only in the host's Docker credential store. Do not place a PAT in the env file, Compose file, systemd unit, update script, shell history, or repository.
+Installation, private-GHCR authentication, cutover, timer enabling, and rollback are explicit operator-approved production changes and are not performed by repository workflows.
 
-### Install gate
+1. Create `/opt/mudx-docs`, copy the Compose file, updater, and env example, and set the three authoritative values.
+2. Authenticate Docker using the host credential store with package-read access. Never place a PAT in tracked files, the env file, unit, or shell history.
+3. Validate with `docker compose --env-file mudx-docs.env -f compose.yml config`.
+4. Pull the selected digest while the legacy `/MudX` remains running.
+5. At the approved cutover, stop and rename the legacy container, then run `docker compose ... up -d --wait`.
+6. Verify `http://127.0.0.1:4560/healthz` returns HTTP 200 with `Healthy`, then verify the public proxy route.
+7. Install and verify the systemd templates only after cutover. Enabling `mudx-docs-update.timer` is a separate approval gate.
 
-Installation is an operator-approved host change and is not performed by repository workflows.
+## Troubleshooting and rollback
 
-1. Create `/opt/mudx-docs` with ownership appropriate for the Docker operator.
-2. Copy `compose.yml` and `update-mudx-docs.sh` there.
-3. Copy `mudx-docs.env.example` to `mudx-docs.env` and replace the placeholder with a verified `repository@sha256:<64-hex>` reference.
-4. Create the local `state/` directory. Record the selected digest in `state/digests.env` as `CURRENT_DIGEST=<digest>` and leave `PREVIOUS_DIGEST=` empty until the first successful update.
-5. Run `docker compose --env-file mudx-docs.env -f compose.yml config` and inspect the rendered configuration.
+- **Gate does not run:** confirm same-repository head, merged state, `release` label, and final `APPROVED` review decision.
+- **Publication waits:** confirm the protected `release` Environment and required reviewers are configured.
+- **Attestation or image mismatch:** stop. Do not retag or overwrite the existing commit/version image; investigate the workflow run and manifest provenance.
+- **NuGet mismatch:** stop. Repository signing differences are already normalized; a remaining difference is a payload mismatch.
+- **Updater reports another run:** wait for the timer/manual invocation holding the lock; do not bypass serialization.
+- **Candidate health fails:** inspect Compose logs. The updater redeploys the prior authoritative image.
+- **Interrupted after health:** rerun the updater. It redeploys/verifies the candidate and atomically advances the one authority file.
 
-Do not alter the live container during this gate.
-
-### Cutover gate
-
-Cutover requires explicit production approval.
-
-1. Pull the selected immutable digest while the existing `/MudX` container remains running.
-2. At the approved cutover window, stop and rename the legacy `/MudX` container so Compose can claim the preserved `MudX` name. Keep the renamed container for rollback until the cutover is accepted.
-3. Run `docker compose --env-file mudx-docs.env -f compose.yml up -d --wait` from `/opt/mudx-docs`.
-4. Confirm the container is healthy and `http://127.0.0.1:4560/healthz` returns HTTP 200 with `Healthy`.
-5. Confirm the public docs route before accepting the cutover. If validation fails, remove the failed Compose container and rename/start the legacy container.
-
-The Compose service retains the existing container name `MudX`, host port, bridge network, and restart policy.
-
-### Timer enable gate
-
-Copy the service and timer templates to `/etc/systemd/system/` only after the install and cutover are accepted. Review their paths, run `systemd-analyze verify`, and reload systemd. Enabling or starting `mudx-docs-update.timer` is a separate operator-approved action; source changes do not enable it.
-
-## Troubleshooting
-
-- **Stable pull fails:** verify host network access and private-GHCR authentication. The running container and state files remain unchanged.
-- **Stable does not resolve to a digest:** inspect `docker image inspect ghcr.io/mudxtra/mudx/mudxdocwebsite:stable`. Do not deploy a mutable-only reference.
-- **Compose health fails:** inspect `docker compose logs docs`. The updater restores the prior env reference and runs Compose again with that digest.
-- **Version tag mismatch:** stop. Confirm the merged PR, project version, Git tag target, and immutable image digest. Do not overwrite the existing tag.
-- **NuGet already exists:** a rerun should report the duplicate as skipped. Confirm the package version and checksum before continuing.
-- **Draft release remains:** fix the failed stage and rerun the same workflow event. The draft is intentionally finalized last.
-
-## Manual rollback
-
-The updater atomically records both accepted digests in `state/digests.env`; use its `PREVIOUS_DIGEST` value to roll back manually after approval:
-
-1. construct the full image reference `ghcr.io/mudxtra/mudx/mudxdocwebsite@<previous-digest>`;
-2. write that value to a temporary env file in `/opt/mudx-docs`;
-3. validate it with `docker compose --env-file <temporary-file> -f compose.yml config`;
-4. run `docker compose --env-file <temporary-file> -f compose.yml up -d --wait`;
-5. after health is confirmed, atomically replace `mudx-docs.env` and update the local current/previous state records.
-
-Never roll back by moving an immutable version tag. Roll back by selecting a previously verified digest.
+For manual rollback, select `PREVIOUS_DIGEST`, create a complete temporary three-line env record with that digest as both image and current value, validate it through Compose, deploy with `--wait`, and atomically replace `mudx-docs.env` only after health succeeds. Never move an immutable version tag to roll back.

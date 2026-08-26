@@ -6,7 +6,7 @@ services:
     container_name: MudX
     restart: unless-stopped
     ports:
-      - "4560:8080"
+      - "127.0.0.1:4560:8080"
     networks:
       - mudx-docs
     healthcheck:
