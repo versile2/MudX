@@ -59,7 +59,9 @@ function focusNextElement(container) {
         });
 
     const containerElements = focusableElements.filter(element => container.contains(element));
-    const currentIndex = focusableElements.indexOf(containerElements.at(-1));
+    if (containerElements.length === 0) return;
+
+    const currentIndex = focusableElements.indexOf(containerElements[containerElements.length - 1]);
     const nextIndex = currentIndex + 1;
 
     // Focus next element if it exists
