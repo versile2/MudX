@@ -378,7 +378,7 @@ namespace MudX
 
             var chars = text.ToCharArray();
             int charIndex = 0;
-            int acceptedEditableCount = 0;
+            int changedEditableCount = 0;
 
             for (int i = index; i < CodeItems.Count && charIndex < chars.Length; i++)
             {
@@ -400,9 +400,10 @@ namespace MudX
                         break;
 
                     pasteChar = chars[charIndex].ToString();
+                    if (CodeItems[i].Value != pasteChar)
+                        changedEditableCount++;
                     CodeItems[i].Value = pasteChar;
                     charIndex++;
-                    acceptedEditableCount++;
                 }
                 else
                 {
@@ -426,7 +427,7 @@ namespace MudX
                 }
             }
 
-            if (acceptedEditableCount > 0 && IsCodeComplete())
+            if (changedEditableCount > 0 && IsCodeComplete())
             {
                 await CompleteInteractionAsync();
                 return;

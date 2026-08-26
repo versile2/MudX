@@ -394,6 +394,46 @@ namespace MudX.UnitTests.Components
         }
 
         [Test]
+        public async Task SecurityCode_ShouldNotRepublishOrCompleteIdenticalValidPasteIntoCompleteCode()
+        {
+            var publishedValues = new List<string?>();
+            var completionCount = 0;
+            var comp = Context.Render<MudXSecurityCode>(
+                parameters => parameters
+                    .Add(p => p.Pattern, "#")
+                    .Add(p => p.CodeChanged, EventCallback.Factory.Create<string?>(this, value => publishedValues.Add(value)))
+                    .Add(p => p.OnCompleted, EventCallback.Factory.Create<string?>(this, _ => completionCount++)));
+
+            await comp.InvokeAsync(() => comp.Find(".mudx-code-item input").Input("7"));
+            await comp.InvokeAsync(() =>
+                comp.Instance.ClipboardPasteEvent("mudx-code-0-random-guid", "7"));
+
+            publishedValues.Should().Equal("7");
+            comp.Instance._codeState.Value.Should().Be("7");
+            completionCount.Should().Be(1);
+        }
+
+        [Test]
+        public async Task SecurityCode_ShouldPublishAndCompleteChangedValidPasteIntoCompleteCode()
+        {
+            var publishedValues = new List<string?>();
+            var completedValues = new List<string?>();
+            var comp = Context.Render<MudXSecurityCode>(
+                parameters => parameters
+                    .Add(p => p.Pattern, "#")
+                    .Add(p => p.CodeChanged, EventCallback.Factory.Create<string?>(this, value => publishedValues.Add(value)))
+                    .Add(p => p.OnCompleted, EventCallback.Factory.Create<string?>(this, value => completedValues.Add(value))));
+
+            await comp.InvokeAsync(() => comp.Find(".mudx-code-item input").Input("7"));
+            await comp.InvokeAsync(() =>
+                comp.Instance.ClipboardPasteEvent("mudx-code-0-random-guid", "8"));
+
+            publishedValues.Should().Equal("7", "8");
+            comp.Instance._codeState.Value.Should().Be("8");
+            completedValues.Should().Equal("7", "8");
+        }
+
+        [Test]
         public async Task SecurityCode_ShouldValidateFormAfterPaste()
         {
             var comp = Context.Render<MudXSecurityCode>(
