@@ -1,0 +1,282 @@
+name: Release MudX
+
+on:
+  pull_request:
+    branches:
+      - dev
+    types:
+      - closed
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: read
+
+concurrency:
+  group: mudx-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish merged release
+    if: >-
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'release')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      IMAGE_REPOSITORY: ghcr.io/mudxtra/mudx/mudxdocwebsite
+      MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+    steps:
+      - name: Checkout exact merge commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Derive and validate release identity
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "$(git rev-parse HEAD)" != "$MERGE_SHA" ]]; then
+            echo "Checkout does not match the pull request merge SHA" >&2
+            exit 1
+          fi
+          version=$(dotnet msbuild src/MudX/MudX.csproj -nologo -getProperty:Version | tail -n 1 | tr -d '\r')
+          if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "MudX project Version is not stable SemVer" >&2
+            exit 1
+          fi
+          if git diff --quiet "$BASE_SHA" "$MERGE_SHA" -- src/MudX/MudX.csproj; then
+            echo "The merged release pull request did not change src/MudX/MudX.csproj" >&2
+            exit 1
+          fi
+          tag="v${version}"
+          git fetch --tags --force
+          if git rev-parse --verify --quiet "refs/tags/$tag"; then
+            tagged_sha=$(git rev-list -n 1 "$tag")
+            if [[ "$tagged_sha" != "$MERGE_SHA" ]]; then
+              echo "Tag $tag already points to a different commit" >&2
+              exit 1
+            fi
+          fi
+          echo "VERSION=$version" >>"$GITHUB_ENV"
+          echo "TAG=$tag" >>"$GITHUB_ENV"
+
+      - name: Restore focused release projects
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          dotnet restore tests/MudX.UnitTests/MudX.UnitTests.csproj --nologo
+          dotnet restore src/MudX.Docs.Hybrid/MudX.Docs.Hybrid/MudX.Docs.Hybrid.csproj --nologo
+
+      - name: Regenerate and assert tracked assets are current
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          dotnet run \
+            --project src/MudX.Generator/MudX.Generator.csproj \
+            --configuration Release \
+            --framework net10.0 \
+            -- src/MudX/wwwroot src/MudX/Scripts
+          dotnet build \
+            src/MudX.Docs/MudX.Docs.csproj \
+            --configuration Release \
+            --no-restore \
+            --nologo \
+            /p:BuildInParallel=false
+          git diff --exit-code
+
+      - name: Build and test Release artifacts once
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          dotnet build src/MudX/MudX.csproj --configuration Release --no-restore --nologo
+          dotnet build \
+            tests/MudX.UnitTests/MudX.UnitTests.csproj \
+            --configuration Release \
+            --framework net10.0 \
+            --no-restore \
+            --nologo \
+            /p:BuildInParallel=false
+          dotnet test \
+            tests/MudX.UnitTests/MudX.UnitTests.csproj \
+            --configuration Release \
+            --framework net10.0 \
+            --no-build \
+            --no-restore \
+            --nologo \
+            --blame-hang \
+            --blame-hang-timeout 60s
+
+      - name: Pack NuGet artifacts once
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          dotnet pack \
+            src/MudX/MudX.csproj \
+            --configuration Release \
+            --no-build \
+            --no-restore \
+            --output artifacts/nuget \
+            /p:Version="$VERSION"
+
+      - name: Validate packaged static assets
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = @('mudx.min.css', 'mudx.min.js', 'prism.js', 'mudxProvider.js')
+          $package = Get-ChildItem artifacts/nuget/*.nupkg |
+            Where-Object { $_.Name -notlike '*.symbols.nupkg' } |
+            Select-Object -First 1
+          ./tools/CheckStaticAssets.ps1 $package.FullName $files
+
+      - name: Create or resume draft GitHub release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            release_sha=$(git rev-list -n 1 "$TAG")
+            if [[ "$release_sha" != "$MERGE_SHA" ]]; then
+              echo "Existing release tag does not match the merge SHA" >&2
+              exit 1
+            fi
+          else
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$MERGE_SHA" \
+              --title "MudX ${VERSION}" \
+              --generate-notes \
+              --draft
+          fi
+
+      - name: Upload NuGet artifacts to the draft release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh release upload "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber \
+            artifacts/nuget/*.nupkg \
+            artifacts/nuget/*.snupkg
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Detect an existing commit image
+        id: existing-image
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          digest=$(docker buildx imagetools inspect \
+            "$IMAGE_REPOSITORY:sha-${MERGE_SHA}" \
+            --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"' || true)
+          if [[ -n "$digest" && ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Existing commit image returned an invalid digest" >&2
+            exit 1
+          fi
+          echo "digest=$digest" >>"$GITHUB_OUTPUT"
+
+      - name: Build and publish the commit image
+        id: build-image
+        if: steps.existing-image.outputs.digest == ''
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: src
+          file: src/MudX.Docs.Hybrid/MudX.Docs.Hybrid/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_REPOSITORY }}:sha-${{ env.MERGE_SHA }}
+
+      - name: Verify and publish immutable image tags
+        id: image
+        shell: bash
+        env:
+          BUILT_DIGEST: ${{ steps.build-image.outputs.digest }}
+          EXISTING_DIGEST: ${{ steps.existing-image.outputs.digest }}
+        run: |
+          set -Eeuo pipefail
+          digest=${EXISTING_DIGEST:-$BUILT_DIGEST}
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Commit image did not produce a valid digest" >&2
+            exit 1
+          fi
+          version_digest=$(docker buildx imagetools inspect \
+            "$IMAGE_REPOSITORY:${VERSION}" \
+            --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"' || true)
+          if [[ -n "$version_digest" && "$version_digest" != "$digest" ]]; then
+            echo "Version image tag already points to a different digest" >&2
+            exit 1
+          fi
+          if [[ -z "$version_digest" ]]; then
+            docker buildx imagetools create \
+              --tag "$IMAGE_REPOSITORY:${VERSION}" \
+              "$IMAGE_REPOSITORY@$digest"
+          fi
+          echo "IMAGE_DIGEST=$digest" >>"$GITHUB_ENV"
+          echo "digest=$digest" >>"$GITHUB_OUTPUT"
+
+      - name: Publish NuGet idempotently
+        shell: bash
+        env:
+          NUGET_KEY: ${{ secrets.NUGET_KEY }}
+        run: |
+          set -Eeuo pipefail
+          dotnet nuget push artifacts/nuget/*.nupkg \
+            --api-key "$NUGET_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+      - name: Promote verified digest to stable
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          docker buildx imagetools create \
+            --tag "$IMAGE_REPOSITORY:stable" \
+            "$IMAGE_REPOSITORY@$IMAGE_DIGEST"
+          promoted_digest=$(docker buildx imagetools inspect \
+            "$IMAGE_REPOSITORY:stable" \
+            --format '{{json .Manifest.Digest}}' | tr -d '"')
+          if [[ "$promoted_digest" != "$IMAGE_DIGEST" ]]; then
+            echo "Stable image digest verification failed" >&2
+            exit 1
+          fi
+
+      - name: Record commit and image digest
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          current_notes=$(gh api \
+            "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" \
+            --jq '.body // ""')
+          notes_file=$(mktemp)
+          printf "%s\n\nCommit: \`%s\`\n\nDocs image: \`%s@%s\`\n" \
+            "$current_notes" \
+            "$MERGE_SHA" \
+            "$IMAGE_REPOSITORY" \
+            "$IMAGE_DIGEST" >"$notes_file"
+          gh release edit "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --notes-file "$notes_file"
+          rm -f "$notes_file"
+
+      - name: Finalize GitHub release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh release edit "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft=false

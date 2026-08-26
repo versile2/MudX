@@ -6,6 +6,8 @@ USER $APP_UID
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080; printf "GET /healthz HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3; grep -q "200 OK" <&3'
 
 
 # This stage is used to build the service project

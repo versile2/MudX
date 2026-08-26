@@ -1,0 +1,15 @@
+[Unit]
+Description=Update MudX documentation container to the verified stable digest
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+ConditionPathExists=/opt/mudx-docs/mudx-docs.env
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/mudx-docs
+ExecStart=/usr/bin/env /opt/mudx-docs/update-mudx-docs.sh
+TimeoutStartSec=15min
+
+[Install]
+WantedBy=multi-user.target
