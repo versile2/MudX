@@ -15,6 +15,8 @@ jobs:
   validate:
     name: Build and verify release preparation
     runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.artifact.outputs.name }}
     permissions:
       contents: read
     env:
@@ -112,10 +114,15 @@ jobs:
           git bundle create release-preparation/release-preparation.bundle prepared-artifact
           (cd release-preparation && sha256sum metadata.env release-preparation.bundle >SHA256SUMS)
 
+      - name: Bind preparation artifact to the producing attempt
+        id: artifact
+        shell: bash
+        run: echo "name=release-preparation-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >>"$GITHUB_OUTPUT"
+
       - name: Upload verified release preparation
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: release-preparation-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ steps.artifact.outputs.name }}
           path: release-preparation/
           if-no-files-found: error
           retention-days: 3
@@ -132,7 +139,7 @@ jobs:
       - name: Download same-run verified preparation
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: release-preparation-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ needs.validate.outputs.artifact-name }}
           path: release-preparation
 
       - name: Checkout dev without persisted credentials

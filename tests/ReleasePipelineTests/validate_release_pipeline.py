@@ -93,9 +93,12 @@ def validate_prepare() -> None:
         fail("prepare publish executes artifact text as shell code")
     if "No release preparation changes were produced" in path.read_text(encoding="utf-8"):
         fail("prepare retry path still aborts when the prepared branch has no new diff")
-    expected_artifact = "release-preparation-${{ github.run_id }}-${{ github.run_attempt }}"
-    if artifact_names(validate, "upload-artifact") != [expected_artifact] or artifact_names(publish, "download-artifact") != [expected_artifact]:
-        fail("prepare artifacts are not paired by run and separated by run attempt")
+    if validate.get("outputs", {}).get("artifact-name") != "${{ steps.artifact.outputs.name }}":
+        fail("prepare producer does not expose its exact artifact name")
+    if artifact_names(validate, "upload-artifact") != ["${{ steps.artifact.outputs.name }}"]:
+        fail("prepare upload does not use the producer-owned artifact name")
+    if artifact_names(publish, "download-artifact") != ["${{ needs.validate.outputs.artifact-name }}"]:
+        fail("prepare failed-job retry does not consume the retained producer artifact")
 
 
 def validate_release() -> None:
@@ -122,7 +125,7 @@ def validate_release() -> None:
         fail("release build job is not contents-read-only")
     assert_checkout_safe(build, "release build")
     build_raw = raw_steps(build)
-    for token in ("dotnet pack", "type=oci", "provenance=mode=max", "sbom=true", "sha256sum", "image-manifest-digest.txt"):
+    for token in ("dotnet pack", "type=oci", "provenance=mode=max", "sbom=true", "sha256sum", "image-application-manifest-digest.txt", "provenance-index-digest.txt"):
         if token not in build_raw:
             fail(f"release build missing {token}")
     attest = jobs["attest"]
@@ -146,10 +149,10 @@ def validate_release() -> None:
         if token not in publish_raw:
             fail(f"release publication missing retry/provenance contract: {token}")
     names = [step.get("name", "") for step in publish.get("steps", [])]
-    for required in ("Publish NuGet after semantic identity check", "Promote verified digest to stable", "Finalize draft GitHub release last"):
+    for required in ("Publish missing NuGet main package", "Publish missing NuGet symbol package", "Promote verified digest to stable", "Finalize draft GitHub release last"):
         if required not in names:
             fail(f"release publication missing ordered step: {required}")
-    if not names.index("Publish NuGet after semantic identity check") < names.index("Promote verified digest to stable") < names.index("Finalize draft GitHub release last"):
+    if not names.index("Publish missing NuGet main package") < names.index("Publish missing NuGet symbol package") < names.index("Promote verified digest to stable") < names.index("Finalize draft GitHub release last"):
         fail("release publication order is unsafe")
     steps = {step.get("name", ""): step for step in publish.get("steps", [])}
     draft_upload = steps.get("Upload or repair draft assets only", {})
@@ -158,6 +161,7 @@ def validate_release() -> None:
     image_step = steps.get("Verify or publish provenance-bound image", {})
     image_raw = str(image_step.get("run", ""))
     for mismatch_guard in (
+        'existing_application_manifest" == "$expected_application_manifest',
         'existing_config" == "$expected_config',
         "existing commit image provenance mismatch",
         "version tag provenance mismatch",
@@ -174,6 +178,8 @@ def validate_release() -> None:
         "expected_nuget_checksum",
         "expected_image_digest",
         "expected_config",
+        "steps.nuget.outputs.symbols-exist",
+        "image-application-manifest-digest.txt",
         "recorded_commit",
         "recorded_version",
         "recorded_nuget_checksum",
@@ -186,8 +192,9 @@ def validate_release() -> None:
         if anchor not in public_raw:
             fail(f"published release is not anchored to same-run identity: {anchor}")
     notes_raw = str(steps.get("Record idempotent checksums and provenance in draft notes", {}).get("run", ""))
-    if "Version:" not in notes_raw:
-        fail("release metadata block does not record version identity")
+    for token in ("Version:", "Docs application manifest:", "deployment identity is the application manifest"):
+        if token not in notes_raw:
+            fail(f"release metadata block does not distinguish application identity: {token}")
     release_lookup_raw = str(steps.get("Detect draft versus published GitHub release", {}).get("run", ""))
     for target_guard in ("target_commitish", '"$release_target" == "$MERGE_SHA"', "draft target does not match merge SHA"):
         if target_guard not in release_lookup_raw:
@@ -196,11 +203,16 @@ def validate_release() -> None:
     for tag_guard in ("git/ref/tags/$TAG", "tagged_sha", '"$tagged_sha" == "$MERGE_SHA"'):
         if tag_guard not in finalize_raw:
             fail(f"finalized Git tag is not verified against merge SHA: {tag_guard}")
-    expected_artifact = "mudx-release-${{ github.run_id }}-${{ github.run_attempt }}"
-    if artifact_names(build, "upload-artifact") != [expected_artifact]:
-        fail("release upload artifact is not unique to the run attempt")
-    if artifact_names(attest, "download-artifact") != [expected_artifact] or artifact_names(publish, "download-artifact") != [expected_artifact]:
-        fail("release consumers are not paired to the same run attempt artifact")
+    if build.get("outputs", {}).get("artifact-name") != "${{ steps.artifact.outputs.name }}":
+        fail("release producer does not expose its exact artifact name")
+    if artifact_names(build, "upload-artifact") != ["${{ steps.artifact.outputs.name }}"]:
+        fail("release upload does not use the producer-owned artifact name")
+    if attest.get("outputs", {}).get("artifact-name") != "${{ needs.build.outputs.artifact-name }}":
+        fail("attestation job does not preserve the producing artifact identity")
+    if artifact_names(attest, "download-artifact") != ["${{ needs.build.outputs.artifact-name }}"]:
+        fail("attestation retry does not consume the retained build artifact")
+    if artifact_names(publish, "download-artifact") != ["${{ needs.attest.outputs.artifact-name }}"]:
+        fail("publication retry does not consume the retained attested artifact")
 
 
 def validate_host() -> None:
