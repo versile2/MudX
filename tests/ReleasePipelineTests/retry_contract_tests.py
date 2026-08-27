@@ -77,6 +77,14 @@ def visible_attempt(statuses: list[int], max_attempts: int = 5) -> int | None:
     return None
 
 
+def peel_tag(objects: dict[str, tuple[str, str]], object_type: str, sha: str) -> tuple[str, str]:
+    for _ in range(5):
+        if object_type != "tag":
+            break
+        object_type, sha = objects[sha]
+    return object_type, sha
+
+
 def stable_promotion_allowed(candidate: str, eligible_versions: list[str]) -> bool:
     version_key = lambda value: tuple(int(part) for part in value.split("."))
     return not eligible_versions or version_key(candidate) >= max(map(version_key, eligible_versions))
@@ -95,6 +103,18 @@ def test_historical_release_cannot_move_stable_backward() -> None:
     assert not stable_promotion_allowed("9.8.0", ["9.8.0", "9.9.0"])
     assert stable_promotion_allowed("9.9.0", ["9.8.0", "9.9.0"])
     assert stable_promotion_allowed("10.0.0", ["9.9.0"])
+
+
+def test_published_release_tag_resolves_to_merge_sha() -> None:
+    publish = load_workflow("release.yml")["jobs"]["publish"]
+    public = steps_by_name(publish)["Verify published release and no-op"]
+    public_raw = str(public.get("run", ""))
+    for token in ("git/ref/tags/$TAG", "git/tags/$tagged_sha", "tagged_type", '"$tagged_sha" == "$MERGE_SHA"'):
+        assert token in public_raw
+    merge_sha = "a" * 40
+    annotated_sha = "b" * 40
+    assert peel_tag({annotated_sha: ("commit", merge_sha)}, "tag", annotated_sha) == ("commit", merge_sha)
+    assert peel_tag({}, "commit", merge_sha) == ("commit", merge_sha)
 
 
 def test_partial_symbol_publication_contract() -> None:
@@ -266,6 +286,7 @@ def test_application_manifest_retry_identity() -> None:
 def main() -> None:
     test_failed_job_rerun_artifact_identity()
     test_historical_release_cannot_move_stable_backward()
+    test_published_release_tag_resolves_to_merge_sha()
     test_partial_symbol_publication_contract()
     test_application_manifest_retry_identity()
     print("PASS release retry contract fixtures")

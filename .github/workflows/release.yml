@@ -563,6 +563,19 @@ jobs:
             remote_raw=$(skopeo inspect --raw "docker://$IMAGE_REPOSITORY@$platform_manifest")
           done
           [[ "$(jq -r '.config.digest' <<<"$remote_raw")" == "$recorded_config" ]] || exit 1
+          tag_object=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG")
+          tagged_sha=$(jq -r '.object.sha' <<<"$tag_object")
+          tagged_type=$(jq -r '.object.type' <<<"$tag_object")
+          for _ in 1 2 3 4 5; do
+            [[ "$tagged_type" == tag ]] || break
+            tag_object=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tagged_sha")
+            tagged_sha=$(jq -r '.object.sha' <<<"$tag_object")
+            tagged_type=$(jq -r '.object.type' <<<"$tag_object")
+          done
+          [[ "$tagged_type" == commit && "$tagged_sha" == "$MERGE_SHA" ]] || {
+            echo "Published Git tag does not resolve to merge SHA" >&2
+            exit 1
+          }
           echo "published release verified; no publication mutation required"
 
       - name: Finalize draft GitHub release last
