@@ -254,6 +254,10 @@ jobs:
             "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG")
           case "$status" in
             200)
+              [[ "$(jq -r '.prerelease' "$response")" == false ]] || {
+                echo "existing release must not be marked prerelease" >&2
+                exit 1
+              }
               if [[ "$(jq -r '.draft' "$response")" == true ]]; then
                 release_target=$(jq -r '.target_commitish' "$response")
                 [[ "$release_target" == "$MERGE_SHA" ]] || {
@@ -262,10 +266,6 @@ jobs:
                 }
                 state=draft
               else
-                [[ "$(jq -r '.prerelease' "$response")" == false ]] || {
-                  echo "published release must not be marked prerelease" >&2
-                  exit 1
-                }
                 state=published
               fi
               ;;

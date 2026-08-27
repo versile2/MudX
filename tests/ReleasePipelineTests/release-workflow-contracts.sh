@@ -25,6 +25,14 @@ step_body() {
     ' "$release_workflow"
 }
 
+step_script() {
+    local name=$1
+    step_body "$name" | awk '
+        /^        run: \|$/ { found = 1; next }
+        found { sub(/^          /, ""); print }
+    '
+}
+
 require_contains() {
     local text=$1 expected=$2 message=$3
     grep -Fq -- "$expected" <<<"$text" || fail "$message"
@@ -111,8 +119,50 @@ test_reject_prerelease() {
     local body
     body=$(step_body "Detect draft versus published GitHub release")
     require_contains "$body" '.prerelease' "published release detection must inspect prerelease state"
-    require_contains "$body" 'published release must not be marked prerelease' "published stable release must reject prerelease metadata"
+    require_contains "$body" 'existing release must not be marked prerelease' "every existing stable release must reject prerelease metadata"
 }
+
+test_prerelease_draft_runtime() (
+    set -Eeuo pipefail
+    local fixture
+    fixture=$(mktemp -d)
+    trap 'rm -rf -- "$fixture"' EXIT
+    mkdir -p "$fixture/bin"
+    : >"$fixture/github-output"
+
+    printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'set -Eeuo pipefail' \
+        'output=' \
+        'while (($#)); do' \
+        '    case "$1" in' \
+        '        --output) output=$2; shift 2 ;;' \
+        '        *) shift ;;' \
+        '    esac' \
+        'done' \
+        '[[ -n "$output" ]]' \
+        'printf "%s" "$STUB_GITHUB_RESPONSE" >"$output"' \
+        'printf "200"' \
+        >"$fixture/bin/curl"
+    chmod +x "$fixture/bin/curl"
+
+    if step_script "Detect draft versus published GitHub release" | env \
+        PATH="$fixture/bin:$PATH" \
+        GH_TOKEN=fixture-token \
+        GITHUB_REPOSITORY=MudXtra/MudX \
+        TAG=v9.9.0 \
+        MERGE_SHA=fixture-merge-sha \
+        GITHUB_OUTPUT="$fixture/github-output" \
+        STUB_GITHUB_RESPONSE='{"draft":true,"prerelease":true,"target_commitish":"fixture-merge-sha"}' \
+        bash -s >"$fixture/detect.out" 2>"$fixture/detect.err"; then
+        fail "prerelease draft was accepted: $(<"$fixture/github-output")"
+    fi
+
+    grep -Fq 'existing release must not be marked prerelease' "$fixture/detect.err" ||
+        fail "prerelease draft failed for the wrong reason: $(tail -n 1 "$fixture/detect.err")"
+    [[ ! -s "$fixture/github-output" ]] ||
+        fail "prerelease draft wrote state before rejection"
+)
 
 test_portable_tar_reader() {
     local body
@@ -174,6 +224,7 @@ tests=(
     nuget_content_types
     immutable_inspection_errors
     reject_prerelease
+    prerelease_draft_runtime
     portable_tar_reader
     oci_reader_runtime
     ci_contract_wiring
