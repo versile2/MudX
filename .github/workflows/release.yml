@@ -136,8 +136,8 @@ jobs:
                       raise SystemExit(f'OCI archive member is not a file: {name}')
                   return json.load(member)
               index = document('index.json')
-              def manifests(document):
-                  for item in document['manifests']:
+              def manifests(index_document):
+                  for item in index_document['manifests']:
                       if item['mediaType'].endswith('image.index.v1+json'):
                           nested = document('blobs/sha256/' + item['digest'].split(':', 1)[1])
                           yield from manifests(nested)

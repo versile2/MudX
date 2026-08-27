@@ -121,6 +121,45 @@ test_portable_tar_reader() {
     require_contains "$body" 'extractfile(' "OCI reader must read validated archive members without extracting"
 }
 
+test_oci_reader_runtime() (
+    set -Eeuo pipefail
+    local fixture archive_root nested_digest application_digest config_digest
+    fixture=$(mktemp -d)
+    trap 'rm -rf -- "$fixture"' EXIT
+    archive_root="$fixture/archive"
+    mkdir -p "$archive_root/blobs/sha256" "$fixture/release-artifacts/release-assets"
+
+    config_digest="sha256:$(printf 'c%.0s' {1..64})"
+    printf '{"schemaVersion":2,"config":{"digest":"%s"},"layers":[]}' "$config_digest" \
+        >"$fixture/application-manifest.json"
+    application_digest=$(sha256sum "$fixture/application-manifest.json" | cut -d' ' -f1)
+    cp "$fixture/application-manifest.json" "$archive_root/blobs/sha256/$application_digest"
+
+    printf '{"schemaVersion":2,"manifests":[{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:%s","platform":{"architecture":"amd64","os":"linux"}}]}' \
+        "$application_digest" >"$fixture/nested-index.json"
+    nested_digest=$(sha256sum "$fixture/nested-index.json" | cut -d' ' -f1)
+    cp "$fixture/nested-index.json" "$archive_root/blobs/sha256/$nested_digest"
+
+    printf '{"schemaVersion":2,"manifests":[{"mediaType":"application/vnd.oci.image.index.v1+json","digest":"sha256:%s"}]}' \
+        "$nested_digest" >"$archive_root/index.json"
+    tar -C "$archive_root" -cf "$fixture/release-artifacts/docs-image.oci.tar" index.json blobs
+
+    if ! step_body "Build exact-SHA OCI image with provenance and SBOM" | awk '
+        /^          python3 - <<'\''PY'\''$/ { found = 1; next }
+        found && /^          PY$/ { exit }
+        found { sub(/^          /, ""); print }
+    ' | (cd "$fixture" && python3 -) >"$fixture/reader.out" 2>"$fixture/reader.err"; then
+        fail "embedded OCI reader failed on a nested image index: $(tail -n 1 "$fixture/reader.err")"
+    fi
+
+    [[ "$(<"$fixture/release-artifacts/release-assets/image-application-manifest-digest.txt")" == "sha256:$application_digest" ]] ||
+        fail "embedded OCI reader wrote the wrong application manifest identity"
+    [[ "$(<"$fixture/release-artifacts/release-assets/image-config-digest.txt")" == "$config_digest" ]] ||
+        fail "embedded OCI reader wrote the wrong config identity"
+    [[ "$(<"$fixture/release-artifacts/provenance-index-digest.txt")" == "sha256:$nested_digest" ]] ||
+        fail "embedded OCI reader wrote the wrong provenance index identity"
+)
+
 test_ci_contract_wiring() {
     require_contains "$(<"$build_workflow")" 'Validate release workflow contracts' "PR CI must run the release workflow contracts"
     require_contains "$(<"$build_workflow")" 'bash tests/ReleasePipelineTests/release-workflow-contracts.sh' "PR CI must execute the dependency-free contract"
@@ -136,6 +175,7 @@ tests=(
     immutable_inspection_errors
     reject_prerelease
     portable_tar_reader
+    oci_reader_runtime
     ci_contract_wiring
 )
 
