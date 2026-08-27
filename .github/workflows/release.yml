@@ -433,6 +433,25 @@ jobs:
               raise SystemExit('published NuGet symbol package semantic identity mismatch after publication')
           PY
 
+      - name: Guard stable against historical release retries
+        if: steps.release.outputs.state != 'published'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          newest_published=$(
+            gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
+              --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name' |
+              sed -nE 's/^v((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$/\1/p' |
+              sort -V |
+              tail -n 1
+          )
+          if [[ -n "$newest_published" && "$(printf '%s\n%s\n' "$VERSION" "$newest_published" | sort -V | tail -n 1)" != "$VERSION" ]]; then
+            echo "Refusing stale release $VERSION because $newest_published is already published" >&2
+            exit 1
+          fi
+
       - name: Promote verified digest to stable
         if: steps.release.outputs.state != 'published'
         shell: bash

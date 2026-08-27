@@ -70,6 +70,26 @@ def publication_actions(main: str, symbols: str) -> list[str]:
     return actions
 
 
+def stable_promotion_allowed(candidate: str, eligible_versions: list[str]) -> bool:
+    version_key = lambda value: tuple(int(part) for part in value.split("."))
+    return not eligible_versions or version_key(candidate) >= max(map(version_key, eligible_versions))
+
+
+def test_historical_release_cannot_move_stable_backward() -> None:
+    publish = load_workflow("release.yml")["jobs"]["publish"]
+    steps = steps_by_name(publish)
+    names = list(steps)
+    guard = steps["Guard stable against historical release retries"]
+    guard_raw = str(guard.get("run", ""))
+    assert guard.get("if") == "steps.release.outputs.state != 'published'"
+    assert names.index("Guard stable against historical release retries") < names.index("Promote verified digest to stable")
+    for token in ("/releases", ".draft == false", ".prerelease == false", "sort -V", "Refusing stale release"):
+        assert token in guard_raw
+    assert not stable_promotion_allowed("9.8.0", ["9.8.0", "9.9.0"])
+    assert stable_promotion_allowed("9.9.0", ["9.8.0", "9.9.0"])
+    assert stable_promotion_allowed("10.0.0", ["9.9.0"])
+
+
 def test_partial_symbol_publication_contract() -> None:
     publish = load_workflow("release.yml")["jobs"]["publish"]
     steps = steps_by_name(publish)
@@ -233,6 +253,7 @@ def test_application_manifest_retry_identity() -> None:
 
 def main() -> None:
     test_failed_job_rerun_artifact_identity()
+    test_historical_release_cannot_move_stable_backward()
     test_partial_symbol_publication_contract()
     test_application_manifest_retry_identity()
     print("PASS release retry contract fixtures")
