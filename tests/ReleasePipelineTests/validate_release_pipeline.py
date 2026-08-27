@@ -242,11 +242,48 @@ def validate_host() -> None:
         fail("Docker base images are not pinned by digest")
 
 
+def validate_pr_ci() -> None:
+    workflow = load_yaml(WORKFLOWS / "Build_And_Test.yml")
+    job = workflow.get("jobs", {}).get("release-contracts", {})
+    if not job:
+        fail("PR CI does not contain the release-contracts job")
+    if job.get("if") != "github.event_name == 'pull_request'":
+        fail("release contracts are not scoped to pull requests")
+    assert_checkout_safe(job, "release contracts")
+    steps = {step.get("name", ""): step for step in job.get("steps", [])}
+    names = list(steps)
+    required = (
+        "Install release contract dependencies",
+        "Validate release pipeline structure",
+        "Run release retry fixtures",
+        "Test docs updater",
+        "Build docs health host",
+        "Verify docs health endpoint",
+    )
+    if any(name not in steps for name in required):
+        fail("PR CI does not run every release and deployment contract")
+    if not names.index("Build docs health host") < names.index("Verify docs health endpoint"):
+        fail("PR CI runs the no-build health contract before building its host")
+    expected_commands = {
+        "Install release contract dependencies": ("--no-deps", "tests/ReleasePipelineTests/requirements.txt"),
+        "Validate release pipeline structure": ("tests/ReleasePipelineTests/validate_release_pipeline.py",),
+        "Run release retry fixtures": ("tests/ReleasePipelineTests/retry_contract_tests.py",),
+        "Test docs updater": ("deploy/mudx-docs/tests/update-mudx-docs-tests.sh",),
+        "Build docs health host": ("dotnet build", "src/MudX.Docs.Hybrid/MudX.Docs.Hybrid/MudX.Docs.Hybrid.csproj"),
+        "Verify docs health endpoint": ("DOTNET_BIN=dotnet", "tests/MudX.Docs.Hybrid.Tests/healthz-contract.sh"),
+    }
+    for name, commands in expected_commands.items():
+        raw = str(steps[name].get("run", ""))
+        if any(command not in raw for command in commands):
+            fail(f"PR CI step is incomplete: {name}")
+
+
 def main() -> None:
     validate_legacy()
     validate_prepare()
     validate_release()
     validate_host()
+    validate_pr_ci()
     print("PASS release pipeline structural contract")
 
 
