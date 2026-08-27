@@ -412,12 +412,26 @@ jobs:
           local_symbols=$(find release-artifacts/release-assets -maxdepth 1 -name '*.snupkg' -print -quit)
           package_id=$(python3 -c 'import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); n=next(x for x in z.namelist() if x.endswith(".nuspec")); import xml.etree.ElementTree as E; r=E.fromstring(z.read(n)); print(next(x.text for x in r.iter() if x.tag.endswith("id")))' "$local_package")
           lower_id=${package_id,,}
-          curl --fail --silent --show-error --location \
+          download_with_retry() {
+            local url=$1 output=$2 label=$3
+            for attempt in 1 2 3 4 5; do
+              if curl --fail --silent --show-error --location "$url" --output "$output"; then
+                return 0
+              fi
+              rm -f "$output"
+              if [[ "$attempt" -eq 5 ]]; then
+                echo "$label was not visible after $attempt attempts" >&2
+                return 1
+              fi
+              sleep "$((attempt * 2))"
+            done
+          }
+          download_with_retry \
             "https://api.nuget.org/v3-flatcontainer/$lower_id/$VERSION/$lower_id.$VERSION.nupkg" \
-            --output /tmp/published-after-push.nupkg
-          curl --fail --silent --show-error --location \
+            /tmp/published-after-push.nupkg "NuGet main package"
+          download_with_retry \
             "https://www.nuget.org/api/v2/symbolpackage/$package_id/$VERSION" \
-            --output /tmp/published-after-push.snupkg
+            /tmp/published-after-push.snupkg "NuGet symbol package"
           LOCAL_PACKAGE="$local_package" LOCAL_SYMBOLS="$local_symbols" python3 - <<'PY'
           import hashlib, os, zipfile
           def package_payload(path):

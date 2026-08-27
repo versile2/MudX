@@ -70,6 +70,13 @@ def publication_actions(main: str, symbols: str) -> list[str]:
     return actions
 
 
+def visible_attempt(statuses: list[int], max_attempts: int = 5) -> int | None:
+    for attempt, status in enumerate(statuses[:max_attempts], start=1):
+        if status == 200:
+            return attempt
+    return None
+
+
 def stable_promotion_allowed(candidate: str, eligible_versions: list[str]) -> bool:
     version_key = lambda value: tuple(int(part) for part in value.split("."))
     return not eligible_versions or version_key(candidate) >= max(map(version_key, eligible_versions))
@@ -111,6 +118,11 @@ def test_partial_symbol_publication_contract() -> None:
     verify = str(steps["Verify NuGet main and symbol identities after publication"].get("run", ""))
     assert "api/v2/symbolpackage" in verify
     assert "published NuGet symbol package semantic identity mismatch after publication" in verify
+    for token in ("download_with_retry", "for attempt in 1 2 3 4 5", 'sleep "$((attempt * 2))"'):
+        assert token in verify
+    assert verify.count("download_with_retry ") == 2
+    assert visible_attempt([404, 404, 200]) == 3
+    assert visible_attempt([404, 404, 404, 404, 404, 200]) is None
 
     names = list(steps)
     assert names.index("Publish missing NuGet main package") < names.index("Publish missing NuGet symbol package")
