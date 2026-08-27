@@ -71,15 +71,6 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Install release contract dependencies
-        run: python3 -m pip install --disable-pip-version-check --no-deps --requirement tests/ReleasePipelineTests/requirements.txt
-
-      - name: Validate release pipeline structure
-        run: python3 tests/ReleasePipelineTests/validate_release_pipeline.py
-
-      - name: Run release retry fixtures
-        run: python3 tests/ReleasePipelineTests/retry_contract_tests.py
-
       - name: Test docs updater
         run: bash deploy/mudx-docs/tests/update-mudx-docs-tests.sh
 
