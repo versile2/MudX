@@ -71,6 +71,9 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Validate release workflow contracts
+        run: bash tests/ReleasePipelineTests/release-workflow-contracts.sh
+
       - name: Test docs updater
         run: bash deploy/mudx-docs/tests/update-mudx-docs-tests.sh
 

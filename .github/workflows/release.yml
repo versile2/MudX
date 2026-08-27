@@ -29,6 +29,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -Eeuo pipefail
           # GraphQL variable names must remain literal.
@@ -37,6 +38,9 @@ jobs:
             -f owner="${GITHUB_REPOSITORY_OWNER}" -f name="${GITHUB_REPOSITORY#*/}" -F number="$PR_NUMBER" \
             --jq '.data.repository.pullRequest.reviewDecision')
           [[ "$decision" == APPROVED ]] || { echo "Final reviewDecision must be APPROVED" >&2; exit 1; }
+          final_head_approval=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews" \
+            --jq ".[] | select(.state == \"APPROVED\" and .commit_id == \"$PR_HEAD_SHA\") | .id")
+          [[ -n "$final_head_approval" ]] || { echo "Final PR head commit must have an approval" >&2; exit 1; }
 
   build:
     name: Build unprivileged release artifacts
@@ -112,35 +116,40 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          source_date_epoch=$(git show --no-show-signature -s --format=%ct "$MERGE_SHA")
+          [[ "$source_date_epoch" =~ ^[0-9]+$ ]] || { echo "Invalid source commit timestamp" >&2; exit 1; }
           docker buildx build --platform linux/amd64 \
+            --build-arg "SOURCE_DATE_EPOCH=$source_date_epoch" \
             --label "org.opencontainers.image.revision=$MERGE_SHA" \
             --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
             --label "org.opencontainers.image.workflow=$GITHUB_WORKFLOW_REF" \
             --provenance=mode=max --sbom=true \
-            --output type=oci,dest=release-artifacts/docs-image.oci.tar \
+            --output type=oci,dest=release-artifacts/docs-image.oci.tar,rewrite-timestamp=true \
             --file src/MudX.Docs.Hybrid/MudX.Docs.Hybrid/Dockerfile src
           python3 - <<'PY'
-          import json, pathlib, tarfile, tempfile
+          import json, pathlib, tarfile
           archive = pathlib.Path('release-artifacts/docs-image.oci.tar')
-          with tempfile.TemporaryDirectory() as directory:
-              with tarfile.open(archive) as bundle:
-                  bundle.extractall(directory, filter='data')
-              root = pathlib.Path(directory)
-              index = json.loads((root / 'index.json').read_text())
+          with tarfile.open(archive) as bundle:
+              def document(name):
+                  member = bundle.extractfile(name)
+                  if member is None:
+                      raise SystemExit(f'OCI archive member is not a file: {name}')
+                  return json.load(member)
+              index = document('index.json')
               def manifests(document):
                   for item in document['manifests']:
                       if item['mediaType'].endswith('image.index.v1+json'):
-                          nested = json.loads((root / 'blobs' / 'sha256' / item['digest'].split(':', 1)[1]).read_text())
+                          nested = document('blobs/sha256/' + item['digest'].split(':', 1)[1])
                           yield from manifests(nested)
                       else:
                           yield item
               descriptor = next(item for item in manifests(index) if item.get('platform', {}).get('architecture') == 'amd64' and item.get('platform', {}).get('os') == 'linux')
-              manifest = json.loads((root / 'blobs' / 'sha256' / descriptor['digest'].split(':', 1)[1]).read_text())
-              pathlib.Path('release-artifacts/release-assets/image-config-digest.txt').write_text(manifest['config']['digest'] + '\n')
+              manifest = document('blobs/sha256/' + descriptor['digest'].split(':', 1)[1])
               if len(index['manifests']) != 1:
                   raise SystemExit('OCI layout must contain exactly one publication descriptor')
-              pathlib.Path('release-artifacts/release-assets/image-application-manifest-digest.txt').write_text(descriptor['digest'] + '\n')
-              pathlib.Path('release-artifacts/provenance-index-digest.txt').write_text(index['manifests'][0]['digest'] + '\n')
+          pathlib.Path('release-artifacts/release-assets/image-config-digest.txt').write_text(manifest['config']['digest'] + '\n')
+          pathlib.Path('release-artifacts/release-assets/image-application-manifest-digest.txt').write_text(descriptor['digest'] + '\n')
+          pathlib.Path('release-artifacts/provenance-index-digest.txt').write_text(index['manifests'][0]['digest'] + '\n')
           PY
           printf 'VERSION=%s\nTAG=%s\nMERGE_SHA=%s\nSOURCE=https://github.com/%s\nWORKFLOW=%s\n' \
             "$VERSION" "$TAG" "$MERGE_SHA" "$GITHUB_REPOSITORY" "$GITHUB_WORKFLOW_REF" \
@@ -253,6 +262,10 @@ jobs:
                 }
                 state=draft
               else
+                [[ "$(jq -r '.prerelease' "$response")" == false ]] || {
+                  echo "published release must not be marked prerelease" >&2
+                  exit 1
+                }
                 state=published
               fi
               ;;
@@ -261,6 +274,25 @@ jobs:
           esac
           rm -f "$response"
           echo "state=$state" >>"$GITHUB_OUTPUT"
+
+      - name: Guard stable against historical release retries
+        if: steps.release.outputs.state != 'published'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          newest_eligible=$(
+            gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
+              --jq '.[] | select(.prerelease == false) | .tag_name' |
+              sed -nE 's/^v((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$/\1/p' |
+              sort -V |
+              tail -n 1
+          )
+          if [[ -n "$newest_eligible" && "$(printf '%s\n%s\n' "$VERSION" "$newest_eligible" | sort -V | tail -n 1)" != "$VERSION" ]]; then
+            echo "Refusing stale release $VERSION because $newest_eligible is already eligible for stable" >&2
+            exit 1
+          fi
 
       - name: Create missing draft GitHub release
         if: steps.release.outputs.state == 'absent'
@@ -287,8 +319,18 @@ jobs:
           [[ "$(jq -r '."org.opencontainers.image.source"' <<<"$local_labels")" == "https://github.com/$GITHUB_REPOSITORY" ]] || exit 1
           [[ "$(jq -r '."org.opencontainers.image.workflow"' <<<"$local_labels")" == "$GITHUB_WORKFLOW_REF" ]] || exit 1
           commit_ref="docker://$IMAGE_REPOSITORY:sha-$MERGE_SHA"
-          existing_raw=$(skopeo inspect --raw "$commit_ref" 2>/dev/null || true)
-          if [[ -n "$existing_raw" ]]; then
+          inspection_error=$(mktemp)
+          trap 'rm -f "$inspection_error"' EXIT
+          if existing_raw=$(skopeo inspect --raw "$commit_ref" 2>"$inspection_error"); then
+            commit_exists=true
+          elif grep -Eqi 'manifest unknown|name unknown' "$inspection_error"; then
+            commit_exists=false
+          else
+            cat "$inspection_error" >&2
+            echo "commit tag inspection failed; refusing to treat it as absent" >&2
+            exit 1
+          fi
+          if [[ "$commit_exists" == true ]]; then
             config_ref="$commit_ref"
             existing_application_manifest=$(skopeo inspect --format '{{.Digest}}' "$commit_ref")
             while jq -e '.manifests' >/dev/null 2>&1 <<<"$existing_raw"; do
@@ -313,8 +355,17 @@ jobs:
           [[ "$image_digest" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 1
           [[ "$image_digest" == "$expected_application_manifest" ]] || { echo "published application manifest differs from attested build" >&2; exit 1; }
           version_ref="docker://$IMAGE_REPOSITORY:$VERSION"
-          version_digest=$(skopeo inspect --format '{{.Digest}}' "$version_ref" 2>/dev/null || true)
-          if [[ -z "$version_digest" ]]; then
+          : >"$inspection_error"
+          if version_digest=$(skopeo inspect --format '{{.Digest}}' "$version_ref" 2>"$inspection_error"); then
+            version_exists=true
+          elif grep -Eqi 'manifest unknown|name unknown' "$inspection_error"; then
+            version_exists=false
+          else
+            cat "$inspection_error" >&2
+            echo "version tag inspection failed; refusing to treat it as absent" >&2
+            exit 1
+          fi
+          if [[ "$version_exists" == false ]]; then
             skopeo copy "docker://$IMAGE_REPOSITORY@$image_digest" "$version_ref"
           elif [[ "$version_digest" != "$image_digest" ]]; then
             echo "version tag provenance mismatch" >&2; exit 1
@@ -349,11 +400,25 @@ jobs:
           if [[ "$main_status" == 200 ]]; then
             echo "verifying semantic package identity while ignoring NuGet.org repository signing metadata"
             LOCAL_PACKAGE="$local_package" python3 - <<'PY'
-          import hashlib, os, zipfile
+          import hashlib, os, zipfile, xml.etree.ElementTree as ET
+          def content_types(data):
+              root = ET.fromstring(data)
+              declarations = []
+              for item in root:
+                  attributes = {key.rsplit('}', 1)[-1]: value for key, value in item.attrib.items()}
+                  part = attributes.get('PartName', '').lower()
+                  extension = attributes.get('Extension', '').lower()
+                  content_type = attributes.get('ContentType', '').lower()
+                  if part == '/.signature.p7s' or extension == 'p7s' or 'digital-signature' in content_type:
+                      continue
+                  declarations.append((item.tag.rsplit('}', 1)[-1], tuple(sorted(attributes.items()))))
+              return sorted(declarations)
           def payload(path):
               with zipfile.ZipFile(path) as archive:
-                  return {n: hashlib.sha256(archive.read(n)).hexdigest() for n in archive.namelist()
-                          if n not in {'.signature.p7s', '[Content_Types].xml'} and not n.endswith('/')}
+                  entries = {n: hashlib.sha256(archive.read(n)).hexdigest() for n in archive.namelist()
+                             if n.lower() != '.signature.p7s' and n != '[Content_Types].xml' and not n.endswith('/')}
+                  entries['[Content_Types].xml'] = content_types(archive.read('[Content_Types].xml'))
+                  return entries
           if payload(os.environ['LOCAL_PACKAGE']) != payload('/tmp/published.nupkg'):
               raise SystemExit('published NuGet package semantic identity mismatch')
           PY
@@ -434,11 +499,25 @@ jobs:
             "https://www.nuget.org/api/v2/symbolpackage/$package_id/$VERSION" \
             /tmp/published-after-push.snupkg "NuGet symbol package"
           LOCAL_PACKAGE="$local_package" LOCAL_SYMBOLS="$local_symbols" python3 - <<'PY'
-          import hashlib, os, zipfile
+          import hashlib, os, zipfile, xml.etree.ElementTree as ET
+          def content_types(data):
+              root = ET.fromstring(data)
+              declarations = []
+              for item in root:
+                  attributes = {key.rsplit('}', 1)[-1]: value for key, value in item.attrib.items()}
+                  part = attributes.get('PartName', '').lower()
+                  extension = attributes.get('Extension', '').lower()
+                  content_type = attributes.get('ContentType', '').lower()
+                  if part == '/.signature.p7s' or extension == 'p7s' or 'digital-signature' in content_type:
+                      continue
+                  declarations.append((item.tag.rsplit('}', 1)[-1], tuple(sorted(attributes.items()))))
+              return sorted(declarations)
           def package_payload(path):
               with zipfile.ZipFile(path) as archive:
-                  return {n: hashlib.sha256(archive.read(n)).hexdigest() for n in archive.namelist()
-                          if n not in {'.signature.p7s', '[Content_Types].xml'} and not n.endswith('/')}
+                  entries = {n: hashlib.sha256(archive.read(n)).hexdigest() for n in archive.namelist()
+                             if n.lower() != '.signature.p7s' and n != '[Content_Types].xml' and not n.endswith('/')}
+                  entries['[Content_Types].xml'] = content_types(archive.read('[Content_Types].xml'))
+                  return entries
           def symbol_payload(path):
               with zipfile.ZipFile(path) as archive:
                   return {n: hashlib.sha256(archive.read(n)).hexdigest() for n in archive.namelist() if not n.endswith('/')}
@@ -447,25 +526,6 @@ jobs:
           if symbol_payload(os.environ['LOCAL_SYMBOLS']) != symbol_payload('/tmp/published-after-push.snupkg'):
               raise SystemExit('published NuGet symbol package semantic identity mismatch after publication')
           PY
-
-      - name: Guard stable against historical release retries
-        if: steps.release.outputs.state != 'published'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -Eeuo pipefail
-          newest_published=$(
-            gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
-              --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name' |
-              sed -nE 's/^v((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$/\1/p' |
-              sort -V |
-              tail -n 1
-          )
-          if [[ -n "$newest_published" && "$(printf '%s\n%s\n' "$VERSION" "$newest_published" | sort -V | tail -n 1)" != "$VERSION" ]]; then
-            echo "Refusing stale release $VERSION because $newest_published is already published" >&2
-            exit 1
-          fi
 
       - name: Promote verified digest to stable
         if: steps.release.outputs.state != 'published'
@@ -556,7 +616,6 @@ jobs:
           echo "$GH_TOKEN" | skopeo login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           [[ "$(skopeo inspect --format '{{.Digest}}' "docker://$IMAGE_REPOSITORY:sha-$MERGE_SHA")" == "$recorded_digest" ]] || exit 1
           [[ "$(skopeo inspect --format '{{.Digest}}' "docker://$IMAGE_REPOSITORY:$VERSION")" == "$recorded_digest" ]] || exit 1
-          [[ "$(skopeo inspect --format '{{.Digest}}' "docker://$IMAGE_REPOSITORY:stable")" == "$recorded_digest" ]] || exit 1
           remote_raw=$(skopeo inspect --raw "docker://$IMAGE_REPOSITORY:sha-$MERGE_SHA")
           while jq -e '.manifests' >/dev/null 2>&1 <<<"$remote_raw"; do
             platform_manifest=$(jq -r '([.manifests[] | select(.platform.os == "linux" and .platform.architecture == "amd64")][0].digest // [.manifests[] | select(.annotations["vnd.docker.reference.type"] != "attestation-manifest")][0].digest // empty)' <<<"$remote_raw")

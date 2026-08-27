@@ -26,7 +26,11 @@ RUN dotnet build "./MudX.Docs.Hybrid.csproj" -c $BUILD_CONFIGURATION -o /app/bui
 
 # This stage is used to publish the service project to be copied to the final stage
 FROM build AS publish
-RUN dotnet publish "./MudX.Docs.Hybrid.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+ARG SOURCE_DATE_EPOCH=0
+RUN dotnet publish "./MudX.Docs.Hybrid.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false && \
+    release_timestamp=$(date --utc --date="@$SOURCE_DATE_EPOCH" '+%a, %d %b %Y %H:%M:%S GMT') && \
+    find /app/publish -name '*.staticwebassets.endpoints.json' -exec \
+        sed -i -E "s|(\"Name\":\"Last-Modified\",\"Value\":\")[^\"]*\"|\1$release_timestamp\"|g" {} +
 
 # Copy generated static assets to final publish folder
 #RUN cp -r /src/MudX/wwwroot /app/publish/MudX/wwwroot && \
