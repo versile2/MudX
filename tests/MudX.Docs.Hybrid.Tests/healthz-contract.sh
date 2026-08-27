@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-dotnet_bin=${DOTNET_BIN:-/home/versile/.dotnet/dotnet}
+dotnet_bin=${DOTNET_BIN:-dotnet}
 port=${MUDX_HEALTH_TEST_PORT:-5187}
 base_url="http://127.0.0.1:${port}"
 log_file=$(mktemp)

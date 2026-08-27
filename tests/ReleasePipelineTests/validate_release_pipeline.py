@@ -228,6 +228,11 @@ def validate_host() -> None:
             fail(f"updater missing atomic/serialization contract: {token}")
     if "state/digests.env" in updater:
         fail("updater still has a second deployment authority")
+    health_contract = (ROOT / "tests/MudX.Docs.Hybrid.Tests/healthz-contract.sh").read_text(encoding="utf-8")
+    if 'dotnet_bin=${DOTNET_BIN:-dotnet}' not in health_contract:
+        fail("health contract does not resolve dotnet from PATH by default")
+    if "/home/versile/.dotnet/dotnet" in health_contract:
+        fail("health contract contains an author-specific dotnet path")
     unit = (ROOT / "deploy/mudx-docs/mudx-docs-update.service").read_text(encoding="utf-8")
     for token in ("NoNewPrivileges=true", "ProtectSystem=strict", "ReadWritePaths=", "UMask=0077"):
         if token not in unit:
