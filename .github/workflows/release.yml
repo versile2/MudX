@@ -89,6 +89,7 @@ jobs:
           set -Eeuo pipefail
           dotnet restore tests/MudX.UnitTests/MudX.UnitTests.csproj --nologo
           dotnet restore src/MudX.Docs.Hybrid/MudX.Docs.Hybrid/MudX.Docs.Hybrid.csproj --nologo
+          dotnet restore src/MudX.Docs/MudX.Docs.csproj --nologo
           dotnet run --project src/MudX.Generator/MudX.Generator.csproj --configuration Release --framework net10.0 -- src/MudX/wwwroot src/MudX/Scripts
           dotnet build src/MudX.Docs/MudX.Docs.csproj --configuration Release --no-restore --nologo /p:BuildInParallel=false
           git diff --exit-code
