@@ -287,6 +287,19 @@ test_ci_contract_wiring() {
     require_contains "$(<"$build_workflow")" 'bash tests/ReleasePipelineTests/release-workflow-contracts.sh' "PR CI must execute the dependency-free contract"
 }
 
+test_token_created_release_ci_dispatch() {
+    local build prepare verified dispatch
+    build=$(<"$build_workflow")
+    prepare=$(<"$prepare_workflow")
+    require_contains "$build" 'workflow_dispatch:' "CI must allow explicit dispatch for github.token-created release PRs"
+    require_contains "$prepare" 'actions: write' "prepare publication must be allowed to dispatch CI"
+    require_contains "$prepare" 'gh workflow run Build_And_Test.yml --ref "$RELEASE_BRANCH"' "prepare publication must dispatch CI for the release branch"
+    verified=$(grep -nF '[[ "$(git rev-parse FETCH_HEAD)" == "$PREPARED_COMMIT" ]] || exit 1' "$prepare_workflow" | head -n 1 | cut -d: -f1 || true)
+    dispatch=$(grep -nF 'gh workflow run Build_And_Test.yml --ref "$RELEASE_BRANCH"' "$prepare_workflow" | head -n 1 | cut -d: -f1 || true)
+    [[ -n "$verified" && -n "$dispatch" ]] || fail "prepared commit verification and CI dispatch must both exist"
+    (( verified < dispatch )) || fail "CI dispatch must follow exact prepared commit verification"
+}
+
 tests=(
     prepare_merge_identity
     exact_release_sdk
@@ -304,6 +317,7 @@ tests=(
     portable_tar_reader
     oci_reader_runtime
     ci_contract_wiring
+    token_created_release_ci_dispatch
 )
 
 requested=("${@:-${tests[@]}}")
