@@ -41,12 +41,14 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 10.0.400
 
       - name: Create or resume the prepared branch locally
         shell: bash
         run: |
           set -Eeuo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           branch="release/${VERSION}"
           if git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
             git switch --create "$branch" "origin/$branch"
@@ -96,8 +98,6 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add --update
           if ! git diff --cached --quiet; then
             git commit -m "Prepare MudX ${VERSION} release"

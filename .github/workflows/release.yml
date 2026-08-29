@@ -63,7 +63,7 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 10.0.400
 
       - name: Derive and validate release identity
         shell: bash
@@ -380,7 +380,31 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
+          expected_assets=$(mktemp)
+          remote_assets=$(mktemp)
+          asset_inventory=$(mktemp)
+          trap 'rm -f "$expected_assets" "$remote_assets" "$asset_inventory"' EXIT
+          find release-artifacts/release-assets -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort >"$expected_assets"
+          release_id=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.id')
+          [[ "$release_id" =~ ^[0-9]+$ ]] || { echo "draft release ID is invalid" >&2; exit 1; }
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases/$release_id/assets?per_page=100" \
+            --jq '.[] | [.id, .name] | @tsv' >"$asset_inventory"
+          while IFS=$'\t' read -r asset_id asset_name; do
+            [[ "$asset_id" =~ ^[0-9]+$ && -n "$asset_name" ]] || {
+              echo "draft asset inventory entry is invalid" >&2
+              exit 1
+            }
+            if ! grep -Fxq -- "$asset_name" "$expected_assets"; then
+              gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id"
+            fi
+          done <"$asset_inventory"
           gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber release-artifacts/release-assets/*
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases/$release_id/assets?per_page=100" \
+            --jq '.[].name' | LC_ALL=C sort >"$remote_assets"
+          if ! diff --unified "$expected_assets" "$remote_assets"; then
+            echo "draft release assets do not match the attested asset set" >&2
+            exit 1
+          fi
 
       - name: Check NuGet main and symbol package identities
         id: nuget

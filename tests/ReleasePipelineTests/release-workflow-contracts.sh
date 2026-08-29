@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 release_workflow="$repository_root/.github/workflows/release.yml"
+prepare_workflow="$repository_root/.github/workflows/prepare-release.yml"
 build_workflow="$repository_root/.github/workflows/Build_And_Test.yml"
 docs_dockerfile="$repository_root/src/MudX.Docs.Hybrid/MudX.Docs.Hybrid/Dockerfile"
 
@@ -60,6 +61,77 @@ test_guard_order() {
         (( guard < mutation )) || fail "historical-release rejection must precede every publication mutation"
     done
 }
+
+test_prepare_merge_identity() {
+    local workflow name_config email_config merge
+    workflow=$(<"$prepare_workflow")
+    name_config=$(grep -nF 'git config user.name "github-actions[bot]"' "$prepare_workflow" | head -n 1 | cut -d: -f1 || true)
+    email_config=$(grep -nF 'git config user.email "41898282+github-actions[bot]@users.noreply.github.com"' "$prepare_workflow" | head -n 1 | cut -d: -f1 || true)
+    merge=$(grep -nF 'git merge --no-edit origin/dev' "$prepare_workflow" | head -n 1 | cut -d: -f1 || true)
+    [[ -n "$name_config" && -n "$email_config" && -n "$merge" ]] ||
+        fail "prepare workflow must configure the release bot identity and support resumed-branch merges"
+    (( name_config < merge && email_config < merge )) ||
+        fail "release bot identity must be configured before a resumed branch can create a merge commit"
+    require_contains "$workflow" 'git merge --no-edit origin/dev' "prepare workflow must retain resumed-branch merging"
+}
+
+test_exact_release_sdk() {
+    local workflow body
+    for workflow in "$prepare_workflow" "$release_workflow"; do
+        body=$(<"$workflow")
+        require_contains "$body" 'dotnet-version: 10.0.400' "release-producing workflows must pin the supported SDK exactly"
+        require_not_contains "$body" 'dotnet-version: 10.0.x' "release-producing workflows must not float across servicing SDKs"
+    done
+}
+
+test_exact_draft_assets() {
+    local body
+    body=$(step_body "Upload or repair draft assets only")
+    require_contains "$body" 'releases/$release_id/assets?per_page=100' "draft asset inventory must enumerate every remote asset"
+    require_contains "$body" '--method DELETE' "unexpected draft assets must be removed"
+    require_contains "$body" 'diff --unified' "draft assets must be verified as an exact set after upload"
+    require_not_contains "$body" '|| true' "draft asset API failures must not be converted to success"
+}
+
+test_draft_asset_api_failure_runtime() (
+    set -Eeuo pipefail
+    local fixture status
+    fixture=$(mktemp -d)
+    trap 'rm -rf -- "$fixture"' EXIT
+    mkdir -p "$fixture/bin" "$fixture/release-artifacts/release-assets"
+    : >"$fixture/release-artifacts/release-assets/MudX.9.9.0.nupkg"
+
+    printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'set -Eeuo pipefail' \
+        'if [[ "$1" == api && "$2" == repos/MudXtra/MudX/releases/tags/v9.9.0 ]]; then' \
+        '    printf "123\n"' \
+        'elif [[ "$1" == api && "$2" == --paginate ]]; then' \
+        '    echo "simulated asset inventory API failure" >&2' \
+        '    exit 42' \
+        'elif [[ "$1" == release && "$2" == upload ]]; then' \
+        '    exit 0' \
+        'else' \
+        '    printf "unexpected gh invocation: %s\n" "$*" >&2' \
+        '    exit 43' \
+        'fi' \
+        >"$fixture/bin/gh"
+    chmod +x "$fixture/bin/gh"
+
+    set +e
+    step_script "Upload or repair draft assets only" | (cd "$fixture" && env \
+        PATH="$fixture/bin:$PATH" \
+        GITHUB_REPOSITORY=MudXtra/MudX \
+        TAG=v9.9.0 \
+        bash -s) >"$fixture/step.out" 2>"$fixture/step.err"
+    status=$?
+    set -e
+
+    [[ "$status" -eq 42 ]] ||
+        fail "draft asset inventory API failure must abort with its failing status, received $status"
+    grep -Fq 'simulated asset inventory API failure' "$fixture/step.err" ||
+        fail "draft asset inventory failed for an unexpected reason"
+)
 
 test_guard_drafts() {
     local body
@@ -216,6 +288,10 @@ test_ci_contract_wiring() {
 }
 
 tests=(
+    prepare_merge_identity
+    exact_release_sdk
+    exact_draft_assets
+    draft_asset_api_failure_runtime
     guard_order
     guard_drafts
     no_op_stable
