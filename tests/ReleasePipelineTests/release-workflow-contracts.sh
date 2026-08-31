@@ -6,6 +6,7 @@ release_workflow="$repository_root/.github/workflows/release.yml"
 prepare_workflow="$repository_root/.github/workflows/prepare-release.yml"
 build_workflow="$repository_root/.github/workflows/Build_And_Test.yml"
 docs_dockerfile="$repository_root/src/MudX.Docs.Hybrid/MudX.Docs.Hybrid/Dockerfile"
+solution_file="$repository_root/src/MudX.slnx"
 
 fail() {
     echo "FAIL $current_test: $1" >&2
@@ -300,6 +301,42 @@ test_token_created_release_ci_dispatch() {
     (( verified < dispatch )) || fail "CI dispatch must follow exact prepared commit verification"
 }
 
+test_solution_workflow_items() {
+    python3 - "$solution_file" "$repository_root" <<'PY'
+import pathlib
+import sys
+import xml.etree.ElementTree as ET
+
+solution = pathlib.Path(sys.argv[1])
+repository_root = pathlib.Path(sys.argv[2])
+expected = {
+    "../.github/workflows/Build_And_Test.yml",
+    "../.github/workflows/auto-assign.yml",
+    "../.github/workflows/old-Build_And_Deploy.yml",
+    "../.github/workflows/old-Deploy.yml",
+    "../.github/workflows/old-Update_MudX_Version.yml",
+    "../.github/workflows/old-deploy-mudx-nuget.yml",
+    "../.github/workflows/prepare-release.yml",
+    "../.github/workflows/release.yml",
+}
+actual = {
+    item.attrib["Path"]
+    for item in ET.parse(solution).getroot().iter("File")
+    if item.attrib["Path"].startswith("../.github/workflows/")
+}
+missing = sorted(expected - actual)
+unexpected = sorted(actual - expected)
+if missing or unexpected:
+    raise SystemExit(f"workflow solution items differ: missing={missing}, unexpected={unexpected}")
+
+missing_files = sorted(
+    path for path in actual if not (solution.parent / path).resolve().is_file()
+)
+if missing_files:
+    raise SystemExit(f"workflow solution items do not exist: {missing_files}")
+PY
+}
+
 tests=(
     prepare_merge_identity
     exact_release_sdk
@@ -318,6 +355,7 @@ tests=(
     oci_reader_runtime
     ci_contract_wiring
     token_created_release_ci_dispatch
+    solution_workflow_items
 )
 
 requested=("${@:-${tests[@]}}")
