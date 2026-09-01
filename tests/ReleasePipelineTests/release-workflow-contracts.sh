@@ -35,6 +35,15 @@ step_script() {
     '
 }
 
+job_body() {
+    local workflow=$1 name=$2
+    awk -v marker="  $name:" '
+        $0 == marker { found = 1; next }
+        found && /^  [[:alnum:]_-]+:$/ { exit }
+        found { print }
+    ' "$workflow"
+}
+
 require_contains() {
     local text=$1 expected=$2 message=$3
     grep -Fq -- "$expected" <<<"$text" || fail "$message"
@@ -289,10 +298,12 @@ test_ci_contract_wiring() {
 }
 
 test_token_created_release_ci_dispatch() {
-    local build prepare verified dispatch
+    local build prepare release_contracts verified dispatch
     build=$(<"$build_workflow")
     prepare=$(<"$prepare_workflow")
+    release_contracts=$(job_body "$build_workflow" "release-contracts")
     require_contains "$build" 'workflow_dispatch:' "CI must allow explicit dispatch for github.token-created release PRs"
+    require_contains "$release_contracts" "github.event_name == 'workflow_dispatch'" "explicitly dispatched release branches must run release contracts"
     require_contains "$prepare" 'actions: write' "prepare publication must be allowed to dispatch CI"
     require_contains "$prepare" 'gh workflow run Build_And_Test.yml --ref "$RELEASE_BRANCH"' "prepare publication must dispatch CI for the release branch"
     verified=$(grep -nF '[[ "$(git rev-parse FETCH_HEAD)" == "$PREPARED_COMMIT" ]] || exit 1' "$prepare_workflow" | head -n 1 | cut -d: -f1 || true)
@@ -300,6 +311,46 @@ test_token_created_release_ci_dispatch() {
     [[ -n "$verified" && -n "$dispatch" ]] || fail "prepared commit verification and CI dispatch must both exist"
     (( verified < dispatch )) || fail "CI dispatch must follow exact prepared commit verification"
 }
+
+test_release_version_change_runtime() (
+    set -Eeuo pipefail
+    local fixture base_sha merge_sha status
+    fixture=$(mktemp -d)
+    trap 'rm -rf -- "$fixture"' EXIT
+    mkdir -p "$fixture/bin" "$fixture/src/MudX"
+
+    printf '<Project><PropertyGroup><Version>9.5.0</Version><Description>base</Description></PropertyGroup></Project>\n' \
+        >"$fixture/src/MudX/MudX.csproj"
+    git -C "$fixture" init --quiet
+    git -C "$fixture" config user.name fixture
+    git -C "$fixture" config user.email fixture@example.invalid
+    git -C "$fixture" add src/MudX/MudX.csproj
+    git -C "$fixture" commit --quiet -m base
+    base_sha=$(git -C "$fixture" rev-parse HEAD)
+
+    printf '<Project><PropertyGroup><Version>9.5.0</Version><Description>changed</Description></PropertyGroup></Project>\n' \
+        >"$fixture/src/MudX/MudX.csproj"
+    git -C "$fixture" add src/MudX/MudX.csproj
+    git -C "$fixture" commit --quiet -m merge
+    merge_sha=$(git -C "$fixture" rev-parse HEAD)
+
+    printf '%s\n' '#!/usr/bin/env bash' 'printf "9.5.0\\n"' >"$fixture/bin/dotnet"
+    chmod +x "$fixture/bin/dotnet"
+
+    set +e
+    step_script "Derive and validate release identity" | (cd "$fixture" && env \
+        PATH="$fixture/bin:$PATH" \
+        BASE_SHA="$base_sha" \
+        MERGE_SHA="$merge_sha" \
+        GITHUB_ENV="$fixture/github-env" \
+        bash -s) >"$fixture/step.out" 2>"$fixture/step.err"
+    status=$?
+    set -e
+
+    [[ "$status" -ne 0 ]] || fail "release identity accepted a project change without a Version change"
+    grep -Fq 'Release PR did not change the MudX Version' "$fixture/step.err" ||
+        fail "unchanged Version failed for an unexpected reason: $(tail -n 1 "$fixture/step.err")"
+)
 
 test_solution_workflow_items() {
     python3 - "$solution_file" "$repository_root" <<'PY'
@@ -355,6 +406,7 @@ tests=(
     oci_reader_runtime
     ci_contract_wiring
     token_created_release_ci_dispatch
+    release_version_change_runtime
     solution_workflow_items
 )
 

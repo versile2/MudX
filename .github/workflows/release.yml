@@ -72,9 +72,40 @@ jobs:
         run: |
           set -Eeuo pipefail
           [[ "$(git rev-parse HEAD)" == "$MERGE_SHA" ]] || exit 1
-          version=$(dotnet msbuild src/MudX/MudX.csproj -nologo -getProperty:Version | tail -n 1 | tr -d '\r')
+          mapfile -t project_versions < <(python3 - "$BASE_SHA" <<'PY'
+          import pathlib
+          import subprocess
+          import sys
+          import xml.etree.ElementTree as ET
+
+          project_path = pathlib.Path("src/MudX/MudX.csproj")
+
+          def version(document, revision):
+              values = [
+                  element.text.strip()
+                  for element in ET.fromstring(document).findall("./PropertyGroup/Version")
+                  if element.text and element.text.strip()
+              ]
+              if len(values) != 1:
+                  raise SystemExit(f"Expected exactly one MudX Version at {revision}; found {len(values)}")
+              return values[0]
+
+          base_sha = sys.argv[1]
+          base_project = subprocess.run(
+              ["git", "show", f"{base_sha}:{project_path.as_posix()}"],
+              check=True,
+              capture_output=True,
+              text=True,
+          ).stdout
+          print(version(base_project, base_sha))
+          print(version(project_path.read_text(encoding="utf-8-sig"), "merge"))
+          PY
+          )
+          [[ "${#project_versions[@]}" -eq 2 ]] || exit 1
+          base_version=${project_versions[0]}
+          version=${project_versions[1]}
           [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || exit 1
-          git diff --quiet "$BASE_SHA" "$MERGE_SHA" -- src/MudX/MudX.csproj && {
+          [[ "$base_version" != "$version" ]] || {
             echo "Release PR did not change the MudX Version" >&2
             exit 1
           }
