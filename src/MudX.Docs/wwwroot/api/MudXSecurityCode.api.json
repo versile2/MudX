@@ -127,7 +127,7 @@
       "Name": "SegmentAriaLabelFormat",
       "Type": "String",
       "Default": "Character {0} of {1}",
-      "Description": "The format used for each editable segment\u0027s accessible name.\nRemarks: Defaults to \u0022Character {0} of {1}\u0022, where {0} is the segment position and {1} is the editable segment count. An aria-label supplied through UserAttributes takes precedence. Null, blank, or malformed formats fall back to the default so every editable segment remains named."
+      "Description": "The format used for each editable segment\u0027s accessible name.\nRemarks: Defaults to \u0022Character {0} of {1}\u0022, where {0} is the segment position and {1} is the editable segment count. An aria-label supplied through UserAttributes labels each editable segment and takes precedence. It does not replace the group\u0027s accessible name. Null, blank, or malformed formats fall back to the default so every editable segment remains named."
     },
     {
       "Name": "Spacing",

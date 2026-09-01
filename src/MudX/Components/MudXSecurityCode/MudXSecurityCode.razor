@@ -10,10 +10,10 @@
      aria-label="@(!string.IsNullOrWhiteSpace(AriaLabel) ? AriaLabel : null)"
      aria-labelledby="@(string.IsNullOrWhiteSpace(AriaLabel) && !string.IsNullOrWhiteSpace(Label) ? LabelId : null)"
      aria-disabled="@(Disabled ? "true" : null)"
-     @attributes="@UserAttributes">
+     @attributes="@GetContainerAttributes()">
     @if (!string.IsNullOrWhiteSpace(Label))
     {
-        <label id="@LabelId" class="mudx-code-label">@Label</label>
+        <label id="@LabelId" for="@FirstEditableInputId" class="mudx-code-label">@Label</label>
     }
 
     <MudForm @ref="@_form">

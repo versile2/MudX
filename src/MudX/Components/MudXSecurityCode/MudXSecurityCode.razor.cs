@@ -24,7 +24,15 @@ namespace MudX
         private string LabelId => $"{Id}-label";
         private string HelperTextId => $"{Id}-helper-text";
         private string ErrorTextId => $"{Id}-error-text";
+        private string? FirstEditableInputId => CodeItems.FirstOrDefault(item => item.IsEditable)?.InputId;
         private const string DefaultSegmentAriaLabelFormat = "Character {0} of {1}";
+
+        private Dictionary<string, object?> GetContainerAttributes()
+        {
+            return UserAttributes
+                .Where(attribute => !string.Equals(attribute.Key, "aria-label", StringComparison.OrdinalIgnoreCase))
+                .ToDictionary(attribute => attribute.Key, attribute => attribute.Value);
+        }
 
         private Dictionary<string, object?> GetInputAttributes(CodeItem item)
         {
@@ -228,11 +236,12 @@ namespace MudX
         /// </summary>
         /// <remarks>
         /// Defaults to <c>"Character {0} of {1}"</c>, where <c>{0}</c> is the segment position and <c>{1}</c> is the editable segment count.
-        /// An <c>aria-label</c> supplied through <see cref="MudComponentBase.UserAttributes" /> takes precedence.
+        /// An <c>aria-label</c> supplied through <see cref="MudComponentBase.UserAttributes" /> labels each editable segment and takes precedence.
+        /// It does not replace the group's accessible name.
         /// Null, blank, or malformed formats fall back to the default so every editable segment remains named.
         /// </remarks>
         [Parameter]
-        public string SegmentAriaLabelFormat { get; set; } = DefaultSegmentAriaLabelFormat;
+        public string? SegmentAriaLabelFormat { get; set; } = DefaultSegmentAriaLabelFormat;
 
         /// <summary>
         /// Called when the value of the security code changes.

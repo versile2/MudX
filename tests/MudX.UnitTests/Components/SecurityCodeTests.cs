@@ -1,4 +1,5 @@
-﻿using AngleSharp.Dom;
+﻿using System.Reflection;
+using AngleSharp.Dom;
 using AwesomeAssertions;
 using Bunit;
 using MudBlazor;
@@ -184,6 +185,39 @@ namespace MudX.UnitTests.Components
         }
 
         [Test]
+        public void SecurityCode_ShouldKeepGroupAndSegmentAriaLabelOwnershipSeparate()
+        {
+            // Arrange
+            var comp = Context.RenderComponent<MudXSecurityCode>(parameters => parameters
+                .Add(p => p.AriaLabel, "Account verification code")
+                .Add(p => p.UserAttributes, new Dictionary<string, object?>
+                {
+                    ["aria-label"] = "Custom segment"
+                }));
+
+            // Assert
+            comp.Find(".mudx-code-container[role='group']")
+                .GetAttribute("aria-label").Should().Be("Account verification code");
+            comp.FindAll("input:not([readonly])")
+                .Should().OnlyContain(input => input.GetAttribute("aria-label") == "Custom segment");
+        }
+
+        [Test]
+        public void SecurityCode_ShouldAssociateVisibleLabelWithFirstEditableSegment()
+        {
+            // Arrange
+            var comp = Context.RenderComponent<MudXSecurityCode>(parameters => parameters
+                .Add(p => p.Pattern, "-##")
+                .Add(p => p.Label, "Verification code"));
+
+            // Assert
+            var label = comp.Find("label.mudx-code-label");
+            var firstEditableInput = comp.Find("input:not([readonly])");
+            label.GetAttribute("for").Should().Be(firstEditableInput.Id);
+            label.GetAttribute("for").Should().NotBe(comp.Find("input[readonly]").Id);
+        }
+
+        [Test]
         public void SecurityCode_ShouldOmitInactiveRequiredAndErrorSemantics()
         {
             // Act
@@ -273,6 +307,20 @@ namespace MudX.UnitTests.Components
                     "Caractère 4 sur 4");
         }
 
+        [Test]
+        public void SecurityCode_ShouldExposeNullableSegmentAriaLabelFormat()
+        {
+            // Arrange
+            var property = typeof(MudXSecurityCode).GetProperty(nameof(MudXSecurityCode.SegmentAriaLabelFormat));
+
+            // Act
+            var nullability = new NullabilityInfoContext().Create(property!);
+
+            // Assert
+            nullability.ReadState.Should().Be(NullabilityState.Nullable);
+            nullability.WriteState.Should().Be(NullabilityState.Nullable);
+        }
+
         [TestCase(null)]
         [TestCase("")]
         [TestCase("   ")]
@@ -282,7 +330,7 @@ namespace MudX.UnitTests.Components
         {
             // Arrange
             var comp = Context.RenderComponent<MudXSecurityCode>(parameters => parameters
-                .Add(p => p.SegmentAriaLabelFormat, format!));
+                .Add(p => p.SegmentAriaLabelFormat, format));
 
             // Assert
             comp.FindAll("input:not([readonly])")
