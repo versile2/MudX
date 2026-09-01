@@ -273,6 +273,25 @@ namespace MudX.UnitTests.Components
                     "Caractère 4 sur 4");
         }
 
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("Character {0")]
+        public void SecurityCode_ShouldFallbackWhenSegmentAriaLabelFormatIsInvalid(string? format)
+        {
+            // Arrange
+            var comp = Context.RenderComponent<MudXSecurityCode>(parameters => parameters
+                .Add(p => p.SegmentAriaLabelFormat, format!));
+
+            // Assert
+            comp.FindAll("input:not([readonly])")
+                .Select(input => input.GetAttribute("aria-label"))
+                .Should().Equal(
+                    "Character 1 of 4",
+                    "Character 2 of 4",
+                    "Character 3 of 4",
+                    "Character 4 of 4");
+        }
+
         [Test]
         public void SecurityCode_ShouldPreserveExplicitSegmentAriaLabel()
         {

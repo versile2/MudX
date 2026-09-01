@@ -24,6 +24,7 @@ namespace MudX
         private string LabelId => $"{Id}-label";
         private string HelperTextId => $"{Id}-helper-text";
         private string ErrorTextId => $"{Id}-error-text";
+        private const string DefaultSegmentAriaLabelFormat = "Character {0} of {1}";
 
         private Dictionary<string, object?> GetInputAttributes(CodeItem item)
         {
@@ -35,7 +36,7 @@ namespace MudX
                 var ordinal = CodeItems.Take(item.Index + 1).Count(codeItem => codeItem.IsEditable);
                 var total = CodeItems.Count(codeItem => codeItem.IsEditable);
                 if (!hasExplicitAriaLabel)
-                    attributes["aria-label"] = string.Format(CultureInfo.CurrentCulture, SegmentAriaLabelFormat, ordinal, total);
+                    attributes["aria-label"] = FormatSegmentAriaLabel(ordinal, total);
             }
             else
             {
@@ -45,6 +46,21 @@ namespace MudX
             }
 
             return attributes;
+        }
+
+        private string FormatSegmentAriaLabel(int ordinal, int total)
+        {
+            var format = string.IsNullOrWhiteSpace(SegmentAriaLabelFormat)
+                ? DefaultSegmentAriaLabelFormat
+                : SegmentAriaLabelFormat;
+            try
+            {
+                return string.Format(CultureInfo.CurrentCulture, format, ordinal, total);
+            }
+            catch (FormatException)
+            {
+                return string.Format(CultureInfo.CurrentCulture, DefaultSegmentAriaLabelFormat, ordinal, total);
+            }
         }
 
         private string? GetDescriptionIds(CodeItem item)
@@ -213,9 +229,10 @@ namespace MudX
         /// <remarks>
         /// Defaults to <c>"Character {0} of {1}"</c>, where <c>{0}</c> is the segment position and <c>{1}</c> is the editable segment count.
         /// An <c>aria-label</c> supplied through <see cref="MudComponentBase.UserAttributes" /> takes precedence.
+        /// Null, blank, or malformed formats fall back to the default so every editable segment remains named.
         /// </remarks>
         [Parameter]
-        public string SegmentAriaLabelFormat { get; set; } = "Character {0} of {1}";
+        public string SegmentAriaLabelFormat { get; set; } = DefaultSegmentAriaLabelFormat;
 
         /// <summary>
         /// Called when the value of the security code changes.
