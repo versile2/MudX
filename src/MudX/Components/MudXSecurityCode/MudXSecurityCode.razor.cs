@@ -24,20 +24,33 @@ namespace MudX
         private string HelperTextId => $"{Id}-helper-text";
         private string ErrorTextId => $"{Id}-error-text";
 
-        private string? DescribedBy
+        private Dictionary<string, object?> GetInputAttributes(CodeItem item)
         {
-            get
+            var attributes = new Dictionary<string, object?>(_attributes);
+            if (item.IsEditable)
             {
-                var helperId = !string.IsNullOrWhiteSpace(HelperText) ? HelperTextId : null;
-                var errorId = Error && !string.IsNullOrWhiteSpace(ErrorText) ? ErrorTextId : null;
-                return (helperId, errorId) switch
-                {
-                    (not null, not null) => $"{helperId} {errorId}",
-                    (not null, null) => helperId,
-                    (null, not null) => errorId,
-                    _ => null
-                };
+                var ordinal = CodeItems.Take(item.Index + 1).Count(codeItem => codeItem.IsEditable);
+                var total = CodeItems.Count(codeItem => codeItem.IsEditable);
+                attributes["aria-label"] = $"Character {ordinal} of {total}";
             }
+
+            return attributes;
+        }
+
+        private string? GetDescriptionIds(CodeItem item)
+        {
+            if (!item.IsEditable)
+                return null;
+
+            var helperId = !string.IsNullOrWhiteSpace(HelperText) ? HelperTextId : null;
+            var errorId = Error && !string.IsNullOrWhiteSpace(ErrorText) ? ErrorTextId : null;
+            return (helperId, errorId) switch
+            {
+                (not null, not null) => $"{helperId} {errorId}",
+                (not null, null) => helperId,
+                (null, not null) => errorId,
+                _ => null
+            };
         }
 
         /// <summary>

@@ -133,19 +133,36 @@ namespace MudX.UnitTests.Components
 
             // Assert
             var group = comp.Find(".mudx-code-container[role='group']");
+            comp.FindAll("[role='group']").Should().ContainSingle();
             var labelId = group.GetAttribute("aria-labelledby");
             labelId.Should().NotBeNullOrWhiteSpace();
             comp.FindAll($"#{labelId}").Should().ContainSingle()
                 .Which.TextContent.Should().Be("Verification code");
 
-            var descriptionIds = group.GetAttribute("aria-describedby")!
-                .Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            descriptionIds.Should().HaveCount(2);
-            descriptionIds.Select(id => comp.Find($"#{id}").TextContent)
-                .Should().BeEquivalentTo("Enter the code from your authenticator.", "The code is invalid.");
+            group.HasAttribute("aria-describedby").Should().BeFalse();
+            group.HasAttribute("aria-required").Should().BeFalse();
+            group.HasAttribute("aria-invalid").Should().BeFalse();
 
-            group.GetAttribute("aria-required").Should().Be("true");
-            group.GetAttribute("aria-invalid").Should().Be("true");
+            var inputs = comp.FindAll("input:not([readonly])");
+            inputs.Should().HaveCount(4);
+            inputs.Select(input => input.GetAttribute("aria-label")).Should().Equal(
+                "Character 1 of 4",
+                "Character 2 of 4",
+                "Character 3 of 4",
+                "Character 4 of 4");
+            inputs.Should().OnlyContain(input => input.GetAttribute("aria-required") == "true");
+            inputs.Should().OnlyContain(input => input.GetAttribute("aria-invalid") == "true");
+            foreach (var input in inputs)
+            {
+                var descriptionIds = input.GetAttribute("aria-describedby")!
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                descriptionIds.Should().HaveCount(2);
+                descriptionIds.Select(id => comp.Find($"#{id}").TextContent)
+                    .Should().BeEquivalentTo("Enter the code from your authenticator.", "The code is invalid.");
+            }
+
+            comp.FindAll("[role='alert']").Should().ContainSingle()
+                .Which.TextContent.Should().Be("The code is invalid.");
             comp.Markup.Split("Verification code").Should().HaveCount(2);
             comp.Markup.Split("Enter the code from your authenticator.").Should().HaveCount(2);
             comp.Markup.Split("The code is invalid.").Should().HaveCount(2);
@@ -177,6 +194,34 @@ namespace MudX.UnitTests.Components
             group.HasAttribute("aria-required").Should().BeFalse();
             group.HasAttribute("aria-invalid").Should().BeFalse();
             group.HasAttribute("aria-describedby").Should().BeFalse();
+            comp.FindAll("[role='group']").Should().ContainSingle();
+            comp.FindAll("input:not([readonly])").Should().OnlyContain(input =>
+                input.GetAttribute("aria-required") == "false"
+                && input.GetAttribute("aria-invalid") == "false"
+                && !input.HasAttribute("aria-describedby"));
+        }
+
+        [Test]
+        public async Task SecurityCode_ShouldAnnounceErrorOnceWhenErrorStateChanges()
+        {
+            // Arrange
+            var comp = Context.RenderComponent<MudXSecurityCode>(parameters => parameters
+                .Add(p => p.HelperText, "Enter the code from your authenticator.")
+                .Add(p => p.ErrorText, "The code is invalid."));
+
+            // Act
+            await comp.InvokeAsync(() => comp.SetParametersAndRender(parameters => parameters
+                .Add(p => p.Error, true)));
+
+            // Assert
+            var inputs = comp.FindAll("input:not([readonly])");
+            inputs.Should().OnlyContain(input => input.GetAttribute("aria-invalid") == "true");
+            inputs.Should().OnlyContain(input => input.GetAttribute("aria-describedby")!
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(id => comp.Find($"#{id}").TextContent)
+                .Contains("The code is invalid."));
+            comp.FindAll("[role='alert']").Should().ContainSingle()
+                .Which.TextContent.Should().Be("The code is invalid.");
         }
 
         [Test]
