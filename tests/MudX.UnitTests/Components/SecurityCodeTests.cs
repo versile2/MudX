@@ -70,18 +70,16 @@ namespace MudX.UnitTests.Components
             codeComp.Should().NotBeNull();
             var textFields = comp.FindComponents<MudTextField<string>>().Where(x => x.Markup.Contains("mudx-code-item")).ToList();
             textFields.Count.Should().Be(4);
-            var inputs = comp.FindAll(".mudx-code-item input");
-
             // Assert: Verify the JS module was imported
             jsInterop.VerifyInvoke("import")
                 .Arguments[0].Should().Be(AssemblyInfo.ModulePath("mudxSecurityCode.js"));
 
-            await comp.InvokeAsync(() => inputs[0].Input("1"));
+            await comp.FindAll(".mudx-code-item input")[0].InputAsync(new ChangeEventArgs { Value = "1" });
 
             comp.WaitForAssertion(() => moduleMock.VerifyInvoke("focusBlock"));
-            await comp.InvokeAsync(() => inputs[1].Input("2"));
-            await comp.InvokeAsync(() => inputs[2].Input("3"));
-            await comp.InvokeAsync(() => inputs[3].Input("4"));
+            await comp.FindAll(".mudx-code-item input")[1].InputAsync(new ChangeEventArgs { Value = "2" });
+            await comp.FindAll(".mudx-code-item input")[2].InputAsync(new ChangeEventArgs { Value = "3" });
+            await comp.FindAll(".mudx-code-item input")[3].InputAsync(new ChangeEventArgs { Value = "4" });
 
             moduleMock.Invocations.Count(invocation => invocation.Identifier == "focusNextAfterContainer").Should().Be(1);
             // dispose the component
@@ -165,10 +163,8 @@ namespace MudX.UnitTests.Components
                         completedValue = value;
                     })));
             var form = comp.FindComponent<MudForm>();
-            var inputs = comp.FindAll(".mudx-code-item input");
-
-            await comp.InvokeAsync(() => inputs[0].Input("1"));
-            await comp.InvokeAsync(() => inputs[1].Input("2"));
+            await comp.FindAll(".mudx-code-item input")[0].InputAsync(new ChangeEventArgs { Value = "1" });
+            await comp.FindAll(".mudx-code-item input")[1].InputAsync(new ChangeEventArgs { Value = "2" });
 
             comp.Instance._codeState.Value.Should().Be("12/");
             form.Instance.IsValid.Should().BeTrue();
