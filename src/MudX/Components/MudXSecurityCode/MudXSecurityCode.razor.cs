@@ -19,6 +19,7 @@ namespace MudX
         private readonly Dictionary<string, object?> _attributes = [];
         internal ParameterState<string?> _codeState;
         private bool _isInternalChange = false;
+        private bool _isDisposed;
         private MudForm? _form = null!;
         private long _completionGeneration;
 
@@ -447,6 +448,9 @@ namespace MudX
 
         private async Task CompleteInteractionAsync()
         {
+            if (_isDisposed)
+                return;
+
             var interactionGeneration = ++_completionGeneration;
             var publishedValue = await UpdateCodeValue();
 
@@ -464,7 +468,7 @@ namespace MudX
         }
 
         private bool IsCurrentCompletion(long interactionGeneration, string? publishedValue)
-            => interactionGeneration == _completionGeneration && _codeState.Value == publishedValue;
+            => !_isDisposed && interactionGeneration == _completionGeneration && _codeState.Value == publishedValue;
 
         private async Task<string> UpdateCodeValue()
         {
@@ -477,6 +481,7 @@ namespace MudX
                 .Select(x => x.index)
                 .DefaultIfEmpty(-1)
                 .Max();
+            var includeAllFixedItems = IsCodeComplete();
 
             for (int i = 0; i < CodeItems.Count; i++)
             {
@@ -486,9 +491,10 @@ namespace MudX
                 {
                     result += item.Value;
                 }
-                // Show fixed characters only if they appear before or at the last filled editable,
-                // or if they are the first fixed character immediately after the last filled editable
-                else if (i <= lastFilledEditableIndex ||
+                // Once complete, publish every fixed item in the rendered value. While incomplete,
+                // show fixed items through the first one immediately after the last filled editable.
+                else if (includeAllFixedItems ||
+                         i <= lastFilledEditableIndex ||
                          (i > lastFilledEditableIndex &&
                           lastFilledEditableIndex >= 0 &&
                           CodeItems[i - 1].IsEditable &&
@@ -535,6 +541,7 @@ namespace MudX
         /// </summary>
         public async ValueTask DisposeAsync()
         {
+            _isDisposed = true;
             if (IsJSRuntimeAvailable)
             {
                 if (_module != null)

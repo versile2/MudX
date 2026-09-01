@@ -173,6 +173,26 @@ namespace MudX.UnitTests.Components
         }
 
         [Test]
+        public async Task SecurityCode_ShouldPublishEveryTrailingLiteralBeforeCompleting()
+        {
+            var moduleMock = Context.JSInterop.SetupModule(AssemblyInfo.ModulePath("mudxSecurityCode.js"));
+            moduleMock.Setup<bool>("init", _ => true);
+            moduleMock.Setup<bool>("focusBlock", _ => true);
+            var completedValues = new List<string?>();
+            var comp = Context.Render<MudXSecurityCode>(
+                parameters => parameters
+                    .Add(p => p.Pattern, "##/-")
+                    .Add(p => p.OnCompleted, EventCallback.Factory.Create<string?>(this,
+                        value => completedValues.Add(value))));
+
+            await comp.FindAll(".mudx-code-item input")[0].InputAsync(new ChangeEventArgs { Value = "1" });
+            await comp.FindAll(".mudx-code-item input")[1].InputAsync(new ChangeEventArgs { Value = "2" });
+
+            comp.Instance._codeState.Value.Should().Be("12/-");
+            completedValues.Should().Equal("12/-");
+        }
+
+        [Test]
         public async Task SecurityCode_ShouldCompleteWhenEarlierMissingItemIsFilledLast()
         {
             var moduleMock = Context.JSInterop.SetupModule(AssemblyInfo.ModulePath("mudxSecurityCode.js"));
@@ -368,6 +388,79 @@ namespace MudX.UnitTests.Components
             comp.Instance._codeState.Value.Should().Be("2");
             publishedValues.Should().Equal("1", "2");
             completedValues.Should().Equal("2");
+        }
+
+        [Test]
+        public async Task SecurityCode_ShouldNotCompleteAfterDisposalDuringPublication()
+        {
+            var moduleMock = Context.JSInterop.SetupModule(AssemblyInfo.ModulePath("mudxSecurityCode.js"));
+            moduleMock.Setup<bool>("init", _ => true);
+            moduleMock.Setup<bool>("cleanup", _ => true);
+            moduleMock.Setup<bool>("focusNextAfterContainer", _ => true);
+            var publicationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releasePublication = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var completedValues = new List<string?>();
+            var comp = Context.Render<MudXSecurityCode>(parameters => parameters
+                .Add(p => p.Pattern, "#")
+                .Add(p => p.CodeChanged, EventCallback.Factory.Create<string?>(this,
+                    new Func<string?, Task>(async _ =>
+                    {
+                        publicationEntered.TrySetResult();
+                        await releasePublication.Task;
+                    })))
+                .Add(p => p.OnCompleted, EventCallback.Factory.Create<string?>(this,
+                    value => completedValues.Add(value))));
+
+            comp.Instance.CodeItems[0].Value = "7";
+            var interaction = comp.InvokeAsync(() => comp.Instance.OnAfterChange(0));
+            await publicationEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            await comp.Instance.DisposeAsync();
+            releasePublication.SetResult();
+            await interaction;
+
+            completedValues.Should().BeEmpty();
+            moduleMock.Invocations.Should().NotContain(invocation => invocation.Identifier == "focusNextAfterContainer");
+        }
+
+        [Test]
+        public async Task SecurityCode_ShouldNotCompleteAfterDisposalDuringValidation()
+        {
+            var moduleMock = Context.JSInterop.SetupModule(AssemblyInfo.ModulePath("mudxSecurityCode.js"));
+            moduleMock.Setup<bool>("init", _ => true);
+            moduleMock.Setup<bool>("cleanup", _ => true);
+            moduleMock.Setup<bool>("focusNextAfterContainer", _ => true);
+            var validationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseValidation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var completedValues = new List<string?>();
+            var comp = Context.Render<MudXSecurityCode>(parameters => parameters
+                .Add(p => p.Pattern, "#")
+                .Add(p => p.OnCompleted, EventCallback.Factory.Create<string?>(this,
+                    value => completedValues.Add(value))));
+            EventHandler configureValidation = null!;
+            configureValidation = (_, _) =>
+            {
+                comp.OnAfterRender -= configureValidation;
+                comp.FindComponent<MudTextField<string>>().Render(parameters => parameters
+                    .Add(p => p.Validation, new Func<string?, Task<string?>>(async _ =>
+                    {
+                        validationEntered.TrySetResult();
+                        await releaseValidation.Task;
+                        return null;
+                    })));
+            };
+            comp.OnAfterRender += configureValidation;
+
+            comp.Instance.CodeItems[0].Value = "7";
+            var interaction = comp.InvokeAsync(() => comp.Instance.OnAfterChange(0));
+            await validationEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            await comp.Instance.DisposeAsync();
+            releaseValidation.SetResult();
+            await interaction;
+
+            completedValues.Should().BeEmpty();
+            moduleMock.Invocations.Should().NotContain(invocation => invocation.Identifier == "focusNextAfterContainer");
         }
 
         [Test]
