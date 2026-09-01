@@ -275,7 +275,9 @@ namespace MudX.UnitTests.Components
 
         [TestCase(null)]
         [TestCase("")]
+        [TestCase("   ")]
         [TestCase("Character {0")]
+        [TestCase("Character {2} of {1}")]
         public void SecurityCode_ShouldFallbackWhenSegmentAriaLabelFormatIsInvalid(string? format)
         {
             // Arrange
@@ -297,6 +299,7 @@ namespace MudX.UnitTests.Components
         {
             // Arrange
             var comp = Context.RenderComponent<MudXSecurityCode>(parameters => parameters
+                .Add(p => p.SegmentAriaLabelFormat, "Character {0")
                 .Add(p => p.UserAttributes, new Dictionary<string, object?>
                 {
                     ["aria-label"] = "Custom segment"
