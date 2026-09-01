@@ -20,6 +20,25 @@ namespace MudX
         internal ParameterState<string?> _codeState;
         private bool _isInternalChange = false;
         private MudForm? _form = null!;
+        private string LabelId => $"{Id}-label";
+        private string HelperTextId => $"{Id}-helper-text";
+        private string ErrorTextId => $"{Id}-error-text";
+
+        private string? DescribedBy
+        {
+            get
+            {
+                var helperId = !string.IsNullOrWhiteSpace(HelperText) ? HelperTextId : null;
+                var errorId = Error && !string.IsNullOrWhiteSpace(ErrorText) ? ErrorTextId : null;
+                return (helperId, errorId) switch
+                {
+                    (not null, not null) => $"{helperId} {errorId}",
+                    (not null, null) => helperId,
+                    (null, not null) => errorId,
+                    _ => null
+                };
+            }
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MudXSecurityCode"/> class.
@@ -113,6 +132,57 @@ namespace MudX
         /// <remarks>Defaults to <c>null</c>.</remarks>
         [Parameter]
         public string? Code { get; set; }
+
+        /// <summary>
+        /// The visible label for the security code group.
+        /// </summary>
+        /// <remarks>Defaults to <c>null</c>.</remarks>
+        [Parameter]
+        public string? Label { get; set; }
+
+        /// <summary>
+        /// The helper text displayed beneath the security code group.
+        /// </summary>
+        /// <remarks>Defaults to <c>null</c>.</remarks>
+        [Parameter]
+        public string? HelperText { get; set; }
+
+        /// <summary>
+        /// Whether a value is required for every editable segment.
+        /// </summary>
+        /// <remarks>Defaults to <c>false</c>.</remarks>
+        [Parameter]
+        public bool Required { get; set; }
+
+        /// <summary>
+        /// Whether the editable security code segments are disabled.
+        /// </summary>
+        /// <remarks>Defaults to <c>false</c>.</remarks>
+        [Parameter]
+        public bool Disabled { get; set; }
+
+        /// <summary>
+        /// Whether the security code group is in an error state.
+        /// </summary>
+        /// <remarks>Defaults to <c>false</c>.</remarks>
+        [Parameter]
+        public bool Error { get; set; }
+
+        /// <summary>
+        /// The error text displayed when <see cref="Error" /> is <c>true</c>.
+        /// </summary>
+        /// <remarks>Defaults to <c>null</c>.</remarks>
+        [Parameter]
+        public string? ErrorText { get; set; }
+
+        /// <summary>
+        /// The accessible name for the security code group.
+        /// </summary>
+        /// <remarks>
+        /// Defaults to <c>null</c>. When set, this value takes precedence over <see cref="Label" /> for the group's accessible name.
+        /// </remarks>
+        [Parameter]
+        public string? AriaLabel { get; set; }
 
         /// <summary>
         /// Called when the value of the security code changes.
@@ -213,7 +283,10 @@ namespace MudX
         private IEnumerable<string> CharPatternValidator(int index, string val)
         {
             if (string.IsNullOrEmpty(val))
-                yield return "*";
+            {
+                if (Required && CodeItems[index].IsEditable)
+                    yield return "*";
+            }
             else if (val.Length > 1 && !IsValidInput(CodeItems[index].PatternChar, val))
                 yield return "*";
         }
@@ -336,7 +409,7 @@ namespace MudX
         /// <remarks>This method processes the pasted text by matching it against the editable and fixed
         /// characters in the code items. Editable code items are updated with valid characters from the pasted text,
         /// while fixed code items are set to their predefined values. After processing, the method updates the code
-        /// value, moves focus to the next focusable item, and validates the form if applicable.</remarks>
+        /// value, moves focus to the next focusable item, and runs the component's internal segmented-field validation.</remarks>
         /// <param name="fullid">The full identifier string, which must be at least 10 characters long. The substring after the first 10
         /// characters is used to determine the starting index for processing.</param>
         /// <param name="text">The text pasted from the clipboard. Cannot be null, empty, or consist only of whitespace.</param>

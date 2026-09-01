@@ -3,7 +3,22 @@
 
 @((MarkupString)ContainerClass)
 
-<div @ref="@_elementRef" id="@Id" class="@($"mudx-code-container {Class}")" @attributes="@UserAttributes">
+<div @ref="@_elementRef"
+     id="@Id"
+     class="@($"mudx-code-container {Class}")"
+     role="group"
+     aria-label="@(!string.IsNullOrWhiteSpace(AriaLabel) ? AriaLabel : null)"
+     aria-labelledby="@(string.IsNullOrWhiteSpace(AriaLabel) && !string.IsNullOrWhiteSpace(Label) ? LabelId : null)"
+     aria-describedby="@DescribedBy"
+     aria-required="@(Required ? "true" : null)"
+     aria-invalid="@(Error ? "true" : null)"
+     aria-disabled="@(Disabled ? "true" : null)"
+     @attributes="@UserAttributes">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <label id="@LabelId" class="mudx-code-label">@Label</label>
+    }
+
     <MudForm @ref="@_form">
         <MudStack Row="@Horizontal"
         Justify="Justify.SpaceBetween"
@@ -25,9 +40,20 @@
                               Margin="@Margin"
                               Underline="@(item.IsEditable ? Underline : false)"
                               OnKeyDown="@(e => OnKeyDown(item.Index, e))"
+                              Disabled="@(item.IsEditable && Disabled)"
                               ReadOnly="!item.IsEditable" />
             }
 
         </MudStack>
     </MudForm>
+
+    @if (!string.IsNullOrWhiteSpace(HelperText))
+    {
+        <div id="@HelperTextId" class="mudx-code-helper-text">@HelperText</div>
+    }
+
+    @if (Error && !string.IsNullOrWhiteSpace(ErrorText))
+    {
+        <div id="@ErrorTextId" class="mudx-code-error-text">@ErrorText</div>
+    }
 </div>
