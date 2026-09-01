@@ -124,6 +124,12 @@
       "Description": "Whether a value is required for every editable segment.\nRemarks: Defaults to false."
     },
     {
+      "Name": "SegmentAriaLabelFormat",
+      "Type": "String",
+      "Default": "Character {0} of {1}",
+      "Description": "The format used for each editable segment\u0027s accessible name.\nRemarks: Defaults to \u0022Character {0} of {1}\u0022, where {0} is the segment position and {1} is the editable segment count. An aria-label supplied through UserAttributes takes precedence."
+    },
+    {
       "Name": "Spacing",
       "Type": "Int32",
       "Default": "2",

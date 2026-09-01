@@ -241,6 +241,54 @@ namespace MudX.UnitTests.Components
         }
 
         [Test]
+        public void SecurityCode_ShouldKeepFixedPatternCharactersOutOfSequentialFocus()
+        {
+            // Arrange
+            var comp = Context.RenderComponent<MudXSecurityCode>(parameters => parameters
+                .Add(p => p.Pattern, "#-#"));
+
+            // Assert
+            comp.FindAll("input:not([readonly])").Should().HaveCount(2)
+                .And.OnlyContain(input => !input.HasAttribute("tabindex"));
+            var fixedInput = comp.Find("input[readonly]");
+            fixedInput.GetAttribute("tabindex").Should().Be("-1");
+            fixedInput.GetAttribute("aria-hidden").Should().Be("true");
+            fixedInput.HasAttribute("inert").Should().BeTrue();
+        }
+
+        [Test]
+        public void SecurityCode_ShouldSupportLocalizedSegmentNames()
+        {
+            // Arrange
+            var comp = Context.RenderComponent<MudXSecurityCode>(parameters => parameters
+                .Add(p => p.SegmentAriaLabelFormat, "Caractère {0} sur {1}"));
+
+            // Assert
+            comp.FindAll("input:not([readonly])")
+                .Select(input => input.GetAttribute("aria-label"))
+                .Should().Equal(
+                    "Caractère 1 sur 4",
+                    "Caractère 2 sur 4",
+                    "Caractère 3 sur 4",
+                    "Caractère 4 sur 4");
+        }
+
+        [Test]
+        public void SecurityCode_ShouldPreserveExplicitSegmentAriaLabel()
+        {
+            // Arrange
+            var comp = Context.RenderComponent<MudXSecurityCode>(parameters => parameters
+                .Add(p => p.UserAttributes, new Dictionary<string, object?>
+                {
+                    ["aria-label"] = "Custom segment"
+                }));
+
+            // Assert
+            comp.FindAll("input:not([readonly])")
+                .Should().OnlyContain(input => input.GetAttribute("aria-label") == "Custom segment");
+        }
+
+        [Test]
         public async Task SecurityCode_ShouldAllowEmptyOptionalSegments()
         {
             // Arrange

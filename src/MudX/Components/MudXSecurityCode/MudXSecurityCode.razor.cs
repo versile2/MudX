@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Components;
+﻿using System.Globalization;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using MudBlazor;
@@ -27,11 +28,20 @@ namespace MudX
         private Dictionary<string, object?> GetInputAttributes(CodeItem item)
         {
             var attributes = new Dictionary<string, object?>(_attributes);
+            var hasExplicitAriaLabel = attributes.TryGetValue("aria-label", out var ariaLabel)
+                && !string.IsNullOrWhiteSpace(ariaLabel?.ToString());
             if (item.IsEditable)
             {
                 var ordinal = CodeItems.Take(item.Index + 1).Count(codeItem => codeItem.IsEditable);
                 var total = CodeItems.Count(codeItem => codeItem.IsEditable);
-                attributes["aria-label"] = $"Character {ordinal} of {total}";
+                if (!hasExplicitAriaLabel)
+                    attributes["aria-label"] = string.Format(CultureInfo.CurrentCulture, SegmentAriaLabelFormat, ordinal, total);
+            }
+            else
+            {
+                attributes["tabindex"] = "-1";
+                attributes["aria-hidden"] = "true";
+                attributes["inert"] = string.Empty;
             }
 
             return attributes;
@@ -196,6 +206,16 @@ namespace MudX
         /// </remarks>
         [Parameter]
         public string? AriaLabel { get; set; }
+
+        /// <summary>
+        /// The format used for each editable segment's accessible name.
+        /// </summary>
+        /// <remarks>
+        /// Defaults to <c>"Character {0} of {1}"</c>, where <c>{0}</c> is the segment position and <c>{1}</c> is the editable segment count.
+        /// An <c>aria-label</c> supplied through <see cref="MudComponentBase.UserAttributes" /> takes precedence.
+        /// </remarks>
+        [Parameter]
+        public string SegmentAriaLabelFormat { get; set; } = "Character {0} of {1}";
 
         /// <summary>
         /// Called when the value of the security code changes.
