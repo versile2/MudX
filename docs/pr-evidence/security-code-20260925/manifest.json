@@ -38,7 +38,7 @@
       "observed": [
         {
           "id": "valid",
-          "text": "Required + helper · complete code\n\nFour digits entered; shared pattern ##-##.",
+          "text": "Required + helper \u00b7 complete code\n\nFour digits entered; shared pattern ##-##.",
           "inputs": [
             {
               "value": "1",
@@ -89,7 +89,7 @@
         },
         {
           "id": "error",
-          "text": "Error · invalid code\n\nRequested error: “Code is invalid.”",
+          "text": "Error \u00b7 invalid code\n\nRequested error: \u201cCode is invalid.\u201d",
           "inputs": [
             {
               "value": "9",
@@ -140,7 +140,7 @@
         },
         {
           "id": "disabled",
-          "text": "Disabled · empty code\n\nRequested disabled state.",
+          "text": "Disabled \u00b7 empty code\n\nRequested disabled state.",
           "inputs": [
             {
               "value": "",
@@ -191,7 +191,7 @@
         },
         {
           "id": "password",
-          "text": "Password · complete code\n\nEditable characters masked; separator visible.",
+          "text": "Password \u00b7 complete code\n\nEditable characters masked; separator visible.",
           "inputs": [
             {
               "value": "2",
@@ -261,7 +261,7 @@
       "observed": [
         {
           "id": "valid",
-          "text": "Required + helper · complete code\n\nFour digits entered; shared pattern ##-##.",
+          "text": "Required + helper \u00b7 complete code\n\nFour digits entered; shared pattern ##-##.",
           "inputs": [
             {
               "value": "1",
@@ -312,7 +312,7 @@
         },
         {
           "id": "error",
-          "text": "Error · invalid code\n\nRequested error: “Code is invalid.”",
+          "text": "Error \u00b7 invalid code\n\nRequested error: \u201cCode is invalid.\u201d",
           "inputs": [
             {
               "value": "9",
@@ -363,7 +363,7 @@
         },
         {
           "id": "disabled",
-          "text": "Disabled · empty code\n\nRequested disabled state.",
+          "text": "Disabled \u00b7 empty code\n\nRequested disabled state.",
           "inputs": [
             {
               "value": "",
@@ -414,7 +414,7 @@
         },
         {
           "id": "password",
-          "text": "Password · complete code\n\nEditable characters masked; separator visible.",
+          "text": "Password \u00b7 complete code\n\nEditable characters masked; separator visible.",
           "inputs": [
             {
               "value": "2",
@@ -484,7 +484,7 @@
       "observed": [
         {
           "id": "valid",
-          "text": "Required + helper · complete code\nVerification code\nEnter your four-digit code.\n\nFour digits entered; shared pattern ##-##.",
+          "text": "Required + helper \u00b7 complete code\nVerification code\nEnter your four-digit code.\n\nFour digits entered; shared pattern ##-##.",
           "inputs": [
             {
               "value": "1",
@@ -535,7 +535,7 @@
         },
         {
           "id": "error",
-          "text": "Error · invalid code\nVerification code\nEnter your four-digit code.\nCode is invalid.\n\nRequested error: “Code is invalid.”",
+          "text": "Error \u00b7 invalid code\nVerification code\nEnter your four-digit code.\nCode is invalid.\n\nRequested error: \u201cCode is invalid.\u201d",
           "inputs": [
             {
               "value": "9",
@@ -586,7 +586,7 @@
         },
         {
           "id": "disabled",
-          "text": "Disabled · empty code\nVerification code\nEnter your four-digit code.\n\nRequested disabled state.",
+          "text": "Disabled \u00b7 empty code\nVerification code\nEnter your four-digit code.\n\nRequested disabled state.",
           "inputs": [
             {
               "value": "",
@@ -637,7 +637,7 @@
         },
         {
           "id": "password",
-          "text": "Password · complete code\n\nEditable characters masked; separator visible.",
+          "text": "Password \u00b7 complete code\n\nEditable characters masked; separator visible.",
           "inputs": [
             {
               "value": "2",
@@ -707,7 +707,7 @@
       "observed": [
         {
           "id": "valid",
-          "text": "Required + helper · complete code\nVerification code\nEnter your four-digit code.\n\nFour digits entered; shared pattern ##-##.",
+          "text": "Required + helper \u00b7 complete code\nVerification code\nEnter your four-digit code.\n\nFour digits entered; shared pattern ##-##.",
           "inputs": [
             {
               "value": "1",
@@ -758,7 +758,7 @@
         },
         {
           "id": "error",
-          "text": "Error · invalid code\nVerification code\nEnter your four-digit code.\nCode is invalid.\n\nRequested error: “Code is invalid.”",
+          "text": "Error \u00b7 invalid code\nVerification code\nEnter your four-digit code.\nCode is invalid.\n\nRequested error: \u201cCode is invalid.\u201d",
           "inputs": [
             {
               "value": "9",
@@ -809,7 +809,7 @@
         },
         {
           "id": "disabled",
-          "text": "Disabled · empty code\nVerification code\nEnter your four-digit code.\n\nRequested disabled state.",
+          "text": "Disabled \u00b7 empty code\nVerification code\nEnter your four-digit code.\n\nRequested disabled state.",
           "inputs": [
             {
               "value": "",
@@ -860,7 +860,7 @@
         },
         {
           "id": "password",
-          "text": "Password · complete code\n\nEditable characters masked; separator visible.",
+          "text": "Password \u00b7 complete code\n\nEditable characters masked; separator visible.",
           "inputs": [
             {
               "value": "2",
@@ -1040,5 +1040,15 @@
     "motion": "Eight sampled frames visually inspected in contact sheet; focus transitions asserted via trusted keyboard capture"
   },
   "captureStateOrder": "Enter synthetic codes, then toggle explicit error false to true; disabled state remains empty",
-  "serverNote": "JSDisconnectedException logged during browser-context teardown; browser pageerror array empty"
+  "serverNote": "JSDisconnectedException logged during browser-context teardown; browser pageerror array empty",
+  "derivedMedia": [
+    {
+      "file": "media/after-securitycode-keyboard-focus.gif",
+      "derivedFrom": "media/after-securitycode-keyboard-focus.webm",
+      "revision": "6d462302c1fdf4aa18b65ae4e565f61765e00081",
+      "fps": 8,
+      "sha256": "e0c93be6fbc6dcc34c99b3d370e8546875fdb93624da4ec7a918d63f9848f55e",
+      "purpose": "Embeddable version of the same recorded keyboard sequence"
+    }
+  ]
 }
