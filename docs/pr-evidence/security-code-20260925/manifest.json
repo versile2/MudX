@@ -1,0 +1,1044 @@
+{
+  "revisions": {
+    "before": "500c309629fa8ea8495fb3e10eb41c7431d968ca",
+    "after": "6d462302c1fdf4aa18b65ae4e565f61765e00081"
+  },
+  "route": "/",
+  "commonParameters": [
+    "Pattern",
+    "Password",
+    "Code",
+    "CodeChanged"
+  ],
+  "addedParameters": [
+    "Label",
+    "HelperText",
+    "Required",
+    "Error",
+    "ErrorText",
+    "Disabled"
+  ],
+  "limitation": "Upstream lacks all added form-state parameters. Identical harness uses actual public ParameterAttribute reflection to omit unsupported requests. Base screenshots therefore document lack of form-state rendering, not a supported upstream disabled/error state. No head-only fixture is linked.",
+  "captures": [
+    {
+      "file": "media/before-securitycode-desktop-1280x900-form-states.png",
+      "revision": "500c309629fa8ea8495fb3e10eb41c7431d968ca",
+      "route": "/",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "crop": {
+        "x": 130,
+        "y": 0,
+        "width": 1020,
+        "height": 522.03125
+      },
+      "state": "required/helper complete, explicit error, disabled empty, password complete",
+      "observed": [
+        {
+          "id": "valid",
+          "text": "Required + helper · complete code\n\nFour digits entered; shared pattern ##-##.",
+          "inputs": [
+            {
+              "value": "1",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "2",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "3",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "4",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            }
+          ]
+        },
+        {
+          "id": "error",
+          "text": "Error · invalid code\n\nRequested error: “Code is invalid.”",
+          "inputs": [
+            {
+              "value": "9",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "8",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "7",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "6",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            }
+          ]
+        },
+        {
+          "id": "disabled",
+          "text": "Disabled · empty code\n\nRequested disabled state.",
+          "inputs": [
+            {
+              "value": "",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            }
+          ]
+        },
+        {
+          "id": "password",
+          "text": "Password · complete code\n\nEditable characters masked; separator visible.",
+          "inputs": [
+            {
+              "value": "2",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "4",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "6",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "8",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            }
+          ]
+        }
+      ],
+      "sha256": "2fcf21593220a1d291e6b229a9fa36c4a25ba6985c82500a815abe8b4ae79d5c"
+    },
+    {
+      "file": "media/before-securitycode-narrow-500x800-form-states.png",
+      "revision": "500c309629fa8ea8495fb3e10eb41c7431d968ca",
+      "route": "/",
+      "viewport": {
+        "width": 500,
+        "height": 800
+      },
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 500,
+        "height": 630.71875
+      },
+      "state": "required/helper complete, explicit error, disabled empty, password complete",
+      "observed": [
+        {
+          "id": "valid",
+          "text": "Required + helper · complete code\n\nFour digits entered; shared pattern ##-##.",
+          "inputs": [
+            {
+              "value": "1",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "2",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "3",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "4",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            }
+          ]
+        },
+        {
+          "id": "error",
+          "text": "Error · invalid code\n\nRequested error: “Code is invalid.”",
+          "inputs": [
+            {
+              "value": "9",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "8",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "7",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "6",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            }
+          ]
+        },
+        {
+          "id": "disabled",
+          "text": "Disabled · empty code\n\nRequested disabled state.",
+          "inputs": [
+            {
+              "value": "",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            }
+          ]
+        },
+        {
+          "id": "password",
+          "text": "Password · complete code\n\nEditable characters masked; separator visible.",
+          "inputs": [
+            {
+              "value": "2",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "4",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "6",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "8",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            }
+          ]
+        }
+      ],
+      "sha256": "b3a252da61b91528ce1296470b014265636335f90af93f751a167836b0669172"
+    },
+    {
+      "file": "media/after-securitycode-desktop-1280x900-form-states.png",
+      "revision": "6d462302c1fdf4aa18b65ae4e565f61765e00081",
+      "route": "/",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "crop": {
+        "x": 130,
+        "y": 0,
+        "width": 1020,
+        "height": 538.25
+      },
+      "state": "required/helper complete, explicit error, disabled empty, password complete",
+      "observed": [
+        {
+          "id": "valid",
+          "text": "Required + helper · complete code\nVerification code\nEnter your four-digit code.\n\nFour digits entered; shared pattern ##-##.",
+          "inputs": [
+            {
+              "value": "1",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 1 of 4"
+            },
+            {
+              "value": "2",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 2 of 4"
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "3",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 3 of 4"
+            },
+            {
+              "value": "4",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 4 of 4"
+            }
+          ]
+        },
+        {
+          "id": "error",
+          "text": "Error · invalid code\nVerification code\nEnter your four-digit code.\nCode is invalid.\n\nRequested error: “Code is invalid.”",
+          "inputs": [
+            {
+              "value": "9",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "true",
+              "label": "Character 1 of 4"
+            },
+            {
+              "value": "8",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "true",
+              "label": "Character 2 of 4"
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "7",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "true",
+              "label": "Character 3 of 4"
+            },
+            {
+              "value": "6",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "true",
+              "label": "Character 4 of 4"
+            }
+          ]
+        },
+        {
+          "id": "disabled",
+          "text": "Disabled · empty code\nVerification code\nEnter your four-digit code.\n\nRequested disabled state.",
+          "inputs": [
+            {
+              "value": "",
+              "type": "text",
+              "disabled": true,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 1 of 4"
+            },
+            {
+              "value": "",
+              "type": "text",
+              "disabled": true,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 2 of 4"
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "",
+              "type": "text",
+              "disabled": true,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 3 of 4"
+            },
+            {
+              "value": "",
+              "type": "text",
+              "disabled": true,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 4 of 4"
+            }
+          ]
+        },
+        {
+          "id": "password",
+          "text": "Password · complete code\n\nEditable characters masked; separator visible.",
+          "inputs": [
+            {
+              "value": "2",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": "Character 1 of 4"
+            },
+            {
+              "value": "4",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": "Character 2 of 4"
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "6",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": "Character 3 of 4"
+            },
+            {
+              "value": "8",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": "Character 4 of 4"
+            }
+          ]
+        }
+      ],
+      "sha256": "cee3403e7112d8445d2508b7912d9b62901dbb23f747554f8818c155509e795c"
+    },
+    {
+      "file": "media/after-securitycode-narrow-500x800-form-states.png",
+      "revision": "6d462302c1fdf4aa18b65ae4e565f61765e00081",
+      "route": "/",
+      "viewport": {
+        "width": 500,
+        "height": 800
+      },
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 500,
+        "height": 773.828125
+      },
+      "state": "required/helper complete, explicit error, disabled empty, password complete",
+      "observed": [
+        {
+          "id": "valid",
+          "text": "Required + helper · complete code\nVerification code\nEnter your four-digit code.\n\nFour digits entered; shared pattern ##-##.",
+          "inputs": [
+            {
+              "value": "1",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 1 of 4"
+            },
+            {
+              "value": "2",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 2 of 4"
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "3",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 3 of 4"
+            },
+            {
+              "value": "4",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 4 of 4"
+            }
+          ]
+        },
+        {
+          "id": "error",
+          "text": "Error · invalid code\nVerification code\nEnter your four-digit code.\nCode is invalid.\n\nRequested error: “Code is invalid.”",
+          "inputs": [
+            {
+              "value": "9",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "true",
+              "label": "Character 1 of 4"
+            },
+            {
+              "value": "8",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "true",
+              "label": "Character 2 of 4"
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "7",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "true",
+              "label": "Character 3 of 4"
+            },
+            {
+              "value": "6",
+              "type": "text",
+              "disabled": false,
+              "readonly": false,
+              "required": "true",
+              "invalid": "true",
+              "label": "Character 4 of 4"
+            }
+          ]
+        },
+        {
+          "id": "disabled",
+          "text": "Disabled · empty code\nVerification code\nEnter your four-digit code.\n\nRequested disabled state.",
+          "inputs": [
+            {
+              "value": "",
+              "type": "text",
+              "disabled": true,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 1 of 4"
+            },
+            {
+              "value": "",
+              "type": "text",
+              "disabled": true,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 2 of 4"
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "",
+              "type": "text",
+              "disabled": true,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 3 of 4"
+            },
+            {
+              "value": "",
+              "type": "text",
+              "disabled": true,
+              "readonly": false,
+              "required": "true",
+              "invalid": "false",
+              "label": "Character 4 of 4"
+            }
+          ]
+        },
+        {
+          "id": "password",
+          "text": "Password · complete code\n\nEditable characters masked; separator visible.",
+          "inputs": [
+            {
+              "value": "2",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": "Character 1 of 4"
+            },
+            {
+              "value": "4",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": "Character 2 of 4"
+            },
+            {
+              "value": "-",
+              "type": "text",
+              "disabled": false,
+              "readonly": true,
+              "required": "false",
+              "invalid": "false",
+              "label": null
+            },
+            {
+              "value": "6",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": "Character 3 of 4"
+            },
+            {
+              "value": "8",
+              "type": "password",
+              "disabled": false,
+              "readonly": false,
+              "required": "false",
+              "invalid": "false",
+              "label": "Character 4 of 4"
+            }
+          ]
+        }
+      ],
+      "sha256": "b4ff4d8b33b923bd839345164caf5dc2fe5fc86ec80290a7ea7bf4c83987322a"
+    },
+    {
+      "file": "media/after-securitycode-keyboard-focus.webm",
+      "revision": "6d462302c1fdf4aa18b65ae4e565f61765e00081",
+      "route": "/?mode=keyboard",
+      "viewport": {
+        "width": 720,
+        "height": 420
+      },
+      "state": "Trusted keyboard input, literal skipping, ArrowLeft/ArrowRight, Backspace, default completion advance, Tab, Shift+Tab; cue text is capture-only annotation",
+      "sha256": "3e49b39578f13a9251e3fb04a3b9125f199060c7dcf747cf654fb4f0922a0d0a",
+      "durationSeconds": 15.92
+    }
+  ],
+  "servedAssets": {
+    "before": {
+      "modules/mudxSecurityCode.js": "30625daf6795a91eb6816ee43d96a86cfa1c3b989fcab31fb0321d88ce9925b6",
+      "mudx.min.css": "d1e59dd493f039a8d723ee6e05b2b64657622a38f10aad0c38a174a66f794fc4"
+    },
+    "after": {
+      "modules/mudxSecurityCode.js": "7a469c6c6ae491f6129969af42ca56cb6386cbe508fb776ffa6ac709b3b7dabd",
+      "mudx.min.css": "d1e59dd493f039a8d723ee6e05b2b64657622a38f10aad0c38a174a66f794fc4"
+    }
+  },
+  "focusSteps": [
+    {
+      "step": "Tab into code",
+      "id": "mudX-code-0-f7c5605a-d3a1-4854-8403-627a21b86a71",
+      "index": 0,
+      "value": ""
+    },
+    {
+      "step": "Type 1",
+      "id": "mudX-code-1-f7c5605a-d3a1-4854-8403-627a21b86a71",
+      "index": 1,
+      "value": ""
+    },
+    {
+      "step": "Type 2",
+      "id": "mudX-code-3-f7c5605a-d3a1-4854-8403-627a21b86a71",
+      "index": 2,
+      "value": ""
+    },
+    {
+      "step": "Type 3",
+      "id": "mudX-code-4-f7c5605a-d3a1-4854-8403-627a21b86a71",
+      "index": 3,
+      "value": ""
+    },
+    {
+      "step": "Type 4",
+      "id": "next-control",
+      "index": -1,
+      "value": ""
+    },
+    {
+      "step": "Shift+Tab after completion",
+      "id": "mudX-code-4-f7c5605a-d3a1-4854-8403-627a21b86a71",
+      "index": 3,
+      "value": "4"
+    },
+    {
+      "step": "ArrowLeft",
+      "id": "mudX-code-3-f7c5605a-d3a1-4854-8403-627a21b86a71",
+      "index": 2,
+      "value": "3"
+    },
+    {
+      "step": "ArrowLeft skips separator",
+      "id": "mudX-code-1-f7c5605a-d3a1-4854-8403-627a21b86a71",
+      "index": 1,
+      "value": "2"
+    },
+    {
+      "step": "ArrowRight skips separator",
+      "id": "mudX-code-3-f7c5605a-d3a1-4854-8403-627a21b86a71",
+      "index": 2,
+      "value": "3"
+    },
+    {
+      "step": "ArrowRight",
+      "id": "mudX-code-4-f7c5605a-d3a1-4854-8403-627a21b86a71",
+      "index": 3,
+      "value": "4"
+    },
+    {
+      "step": "Backspace",
+      "id": "mudX-code-3-f7c5605a-d3a1-4854-8403-627a21b86a71",
+      "index": 2,
+      "value": "3"
+    },
+    {
+      "step": "ArrowRight after Backspace",
+      "id": "mudX-code-4-f7c5605a-d3a1-4854-8403-627a21b86a71",
+      "index": 3,
+      "value": ""
+    },
+    {
+      "step": "Type 4 restore",
+      "id": "next-control",
+      "index": -1,
+      "value": ""
+    },
+    {
+      "step": "Shift+Tab before Tab check",
+      "id": "mudX-code-4-f7c5605a-d3a1-4854-8403-627a21b86a71",
+      "index": 3,
+      "value": "4"
+    },
+    {
+      "step": "Tab leaves code",
+      "id": "next-control",
+      "index": -1,
+      "value": ""
+    },
+    {
+      "step": "Shift+Tab returns",
+      "id": "mudX-code-4-f7c5605a-d3a1-4854-8403-627a21b86a71",
+      "index": 3,
+      "value": "4"
+    }
+  ],
+  "browser": "149.0.7827.55",
+  "errors": [],
+  "visualReview": {
+    "stills": "All four visually inspected through supported browser image viewer; no private data or clipping",
+    "motion": "Eight sampled frames visually inspected in contact sheet; focus transitions asserted via trusted keyboard capture"
+  },
+  "captureStateOrder": "Enter synthetic codes, then toggle explicit error false to true; disabled state remains empty",
+  "serverNote": "JSDisconnectedException logged during browser-context teardown; browser pageerror array empty"
+}
